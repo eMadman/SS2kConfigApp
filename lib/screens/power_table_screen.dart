@@ -27,6 +27,7 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
   late BLEData bleData;
   String statusString = '';
   late AnimationController _pulseController;
+  double maxResistance = 0;
 
   @override
   void initState() {
@@ -149,11 +150,28 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
     }
   }
 
-  final List<int> watts = List.generate(40, (index) => index * 30); // Replace with your actual watts values
-  final List<int> cadences = [60, 65, 70, 75, 80, 85, 90, 95, 100, 105]; // Replace with your actual cadences
+  // Generate watts values up to 1000w in 30w increments
+  final List<int> watts = List.generate((1000 ~/ 30) + 1, (index) => index * 30);
+  final List<int> cadences = [60, 65, 70, 75, 80, 85, 90, 95, 100, 105];
+
+  // Calculate max resistance from plotted data (excluding points above 1000w)
+  double calculateMaxResistance() {
+    double maxRes = 0;
+    for (var row in bleData.powerTableData) {
+      for (int i = 0; i < row.length && i * 30 <= 1000; i++) {
+        if (row[i] != null && row[i]! > maxRes) {
+          maxRes = row[i]!.toDouble();
+        }
+      }
+    }
+    return maxRes;
+  }
 
   @override
   Widget build(BuildContext context) {
+    // Update maxResistance whenever we rebuild
+    maxResistance = calculateMaxResistance();
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Resistance Chart'),
@@ -208,19 +226,23 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
                       lineBarsData: _createLineBarsData(),
                       titlesData: FlTitlesData(
                           bottomTitles: AxisTitles(
-                            axisNameWidget: Text('Cadences:'),
+                            axisNameWidget: Text('Watts (max 1000w)'),
                           ),
                           rightTitles: AxisTitles(),
                           leftTitles: AxisTitles(axisNameWidget: Text('Motor Tension'))),
                       borderData: FlBorderData(show: true),
                       gridData: FlGridData(show: true),
+                      maxX: 1000,
+                      minX: 0,
+                      maxY: maxResistance,
+                      minY: 0,
                     ),
                   ),
                   // Pulsing dot overlay
-                  if (bleData.ftmsData.watts > 0)
+                  if (bleData.ftmsData.watts > 0 && bleData.ftmsData.watts <= 1000 && maxResistance > 0)
                     Positioned(
-                      left: (bleData.ftmsData.watts / 30) * (MediaQuery.of(context).size.width - 64) / 40,
-                      bottom: (bleData.ftmsData.resistance * (MediaQuery.of(context).size.height - 100)) / 20000,
+                      left: (bleData.ftmsData.watts * (MediaQuery.of(context).size.width - 64)) / 1000,
+                      bottom: (bleData.ftmsData.resistance * (MediaQuery.of(context).size.height - 100)) / maxResistance,
                       child: AnimatedBuilder(
                         animation: _pulseController,
                         builder: (context, child) {
@@ -256,7 +278,7 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
   List<LineChartBarData> _createLineBarsData() {
     return List.generate(bleData.powerTableData.length, (index) {
       final List<FlSpot> spots = [];
-      for (int i = 0; i < bleData.powerTableData[index].length; i++) {
+      for (int i = 0; i < bleData.powerTableData[index].length && i * 30 <= 1000; i++) {
         final resistance = bleData.powerTableData[index][i];
         if (resistance != null) {
           spots.add(FlSpot(watts[i].toDouble(), resistance.toDouble()));
