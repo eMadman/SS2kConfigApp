@@ -89,6 +89,10 @@ class _PowerTableScreenState extends State<PowerTableScreen> {
 
   Future rwSubscription() async {
     _connectionStateSubscription = this.widget.device.connectionState.listen((state) async {
+      if (state == BluetoothConnectionState.connected) {
+        // Request power table data when connection is restored
+        requestAllCadenceLines();
+      }
       if (mounted) {
         setState(() {});
       }
