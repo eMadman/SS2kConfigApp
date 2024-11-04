@@ -30,6 +30,12 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
   double maxResistance = 0;
   final GlobalKey _chartKey = GlobalKey();
 
+  // Chart padding percentages
+  static const double leftPaddingPercent = 0.12; // 12% for Y axis
+  static const double rightPaddingPercent = 0.05; // 5% for right padding
+  static const double topPaddingPercent = 0.05; // 5% for top padding
+  static const double bottomPaddingPercent = 0.12; // 12% for X axis
+
   @override
   void initState() {
     super.initState();
@@ -221,9 +227,9 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
   }
 
   double _calculateDotXPosition(double chartWidth) {
-    // Chart padding and axis space estimation
-    const double leftPadding = 40; // Space for Y axis
-    const double rightPadding = 20;
+    // Calculate padding based on percentages
+    final double leftPadding = chartWidth * leftPaddingPercent;
+    final double rightPadding = chartWidth * rightPaddingPercent;
     final double availableWidth = chartWidth - leftPadding - rightPadding;
     
     // Calculate position based on current watts (0-1000 range)
@@ -232,9 +238,9 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
   }
 
   double _calculateDotYPosition(double chartHeight) {
-    // Chart padding and axis space estimation
-    const double topPadding = 20;
-    const double bottomPadding = 40; // Space for X axis
+    // Calculate padding based on percentages
+    final double topPadding = chartHeight * topPaddingPercent;
+    final double bottomPadding = chartHeight * bottomPaddingPercent;
     final double availableHeight = chartHeight - topPadding - bottomPadding;
     
     // Calculate position based on current resistance (0-maxResistance range)
