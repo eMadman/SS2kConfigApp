@@ -37,10 +37,10 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
   DateTime _lastPositionUpdate = DateTime.now();
 
   // Chart padding percentages
-  static const double leftPaddingPercent = 0.12; // 12% for Y axis
+  static const double leftPaddingPercent = 0.005; // 12% for Y axis
   static const double rightPaddingPercent = 0.05; // 5% for right padding
-  static const double topPaddingPercent = 0.05; // 5% for top padding
-  static const double bottomPaddingPercent = 0.12; // 12% for X axis
+  static const double topPaddingPercent = 0.65; // 5% for top padding
+  static const double bottomPaddingPercent = -2.9; // 12% for X axis
 
   @override
   void initState() {
