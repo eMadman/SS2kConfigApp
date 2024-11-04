@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: GPL-2.0-only
  */
 import 'dart:async';
+import 'dart:math';
 
 import 'package:SS2kConfigApp/utils/constants.dart';
 import 'package:SS2kConfigApp/utils/extra.dart';
@@ -29,6 +30,11 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
   late AnimationController _pulseController;
   double maxResistance = 0;
   final GlobalKey _chartKey = GlobalKey();
+  
+  // Trail tracking
+  final List<Map<String, double>> _positionHistory = [];
+  static const int maxTrailLength = 10;
+  DateTime _lastPositionUpdate = DateTime.now();
 
   // Chart padding percentages
   static const double leftPaddingPercent = 0.12; // 12% for Y axis
@@ -104,6 +110,21 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
     return Colors.red; // Too high cadence
   }
 
+  Color getInterpolatedCadenceColor(int cadence) {
+    if (cadence < 60) {
+      return Colors.red;
+    } else if (cadence < 80) {
+      double t = (cadence - 60) / 20.0; // normalize to 0-1 range
+      return Color.lerp(Colors.red, Colors.orange, t)!;
+    } else if (cadence <= 100) {
+      double t = (cadence - 80) / 20.0; // normalize to 0-1 range
+      return Color.lerp(Colors.orange, Colors.green, t)!;
+    } else {
+      double t = min((cadence - 100) / 20.0, 1.0); // normalize to 0-1 range, cap at 1
+      return Color.lerp(Colors.green, Colors.red, t)!;
+    }
+  }
+
   bool _refreshBlocker = false;
 
   final List<Color> colors = [
@@ -174,6 +195,17 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
     return maxRes;
   }
 
+  void _updatePositionHistory(double x, double y) {
+    final now = DateTime.now();
+    if (now.difference(_lastPositionUpdate).inMilliseconds >= 100) { // Update every 100ms
+      _positionHistory.add({'x': x, 'y': y});
+      if (_positionHistory.length > maxTrailLength) {
+        _positionHistory.removeAt(0);
+      }
+      _lastPositionUpdate = now;
+    }
+  }
+
   Widget _buildChart(BuildContext context, BoxConstraints constraints) {
     final chart = LineChart(
       LineChartData(
@@ -193,14 +225,39 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
       ),
     );
 
+    if (bleData.ftmsData.watts > 0 && bleData.ftmsData.watts <= 1000 && maxResistance > 0) {
+      final dotX = _calculateDotXPosition(constraints.maxWidth);
+      final dotY = _calculateDotYPosition(constraints.maxHeight);
+      _updatePositionHistory(dotX, dotY);
+    }
+
     return Stack(
       children: [
         chart,
-        // Pulsing dot overlay
+        // Trail
+        if (_positionHistory.isNotEmpty)
+          ..._positionHistory.asMap().entries.map((entry) {
+            final index = entry.key;
+            final position = entry.value;
+            final opacity = (index + 1) / _positionHistory.length;
+            return Positioned(
+              left: position['x']! - 6,
+              bottom: position['y']! - 6,
+              child: Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: getInterpolatedCadenceColor(bleData.ftmsData.cadence).withOpacity(opacity * 0.3),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            );
+          }).toList(),
+        // Current dot
         if (bleData.ftmsData.watts > 0 && bleData.ftmsData.watts <= 1000 && maxResistance > 0)
           Positioned(
-            left: _calculateDotXPosition(constraints.maxWidth),
-            bottom: _calculateDotYPosition(constraints.maxHeight),
+            left: _calculateDotXPosition(constraints.maxWidth) - 6,
+            bottom: _calculateDotYPosition(constraints.maxHeight) - 6,
             child: AnimatedBuilder(
               animation: _pulseController,
               builder: (context, child) {
@@ -208,11 +265,11 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
                   width: 12 + (_pulseController.value * 4),
                   height: 12 + (_pulseController.value * 4),
                   decoration: BoxDecoration(
-                    color: getCadenceColor(bleData.ftmsData.cadence),
+                    color: getInterpolatedCadenceColor(bleData.ftmsData.cadence),
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: getCadenceColor(bleData.ftmsData.cadence).withOpacity(0.5),
+                        color: getInterpolatedCadenceColor(bleData.ftmsData.cadence).withOpacity(0.5),
                         blurRadius: 10 * _pulseController.value,
                         spreadRadius: 2 * _pulseController.value,
                       ),
