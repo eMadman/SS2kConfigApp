@@ -28,6 +28,7 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
   String statusString = '';
   late AnimationController _pulseController;
   double maxResistance = 0;
+  final GlobalKey _chartKey = GlobalKey();
 
   @override
   void initState() {
@@ -167,6 +168,80 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
     return maxRes;
   }
 
+  Widget _buildChart(BuildContext context, BoxConstraints constraints) {
+    final chart = LineChart(
+      LineChartData(
+        lineBarsData: _createLineBarsData(),
+        titlesData: FlTitlesData(
+            bottomTitles: AxisTitles(
+              axisNameWidget: Text('Watts (max 1000w)'),
+            ),
+            rightTitles: AxisTitles(),
+            leftTitles: AxisTitles(axisNameWidget: Text('Motor Tension'))),
+        borderData: FlBorderData(show: true),
+        gridData: FlGridData(show: true),
+        maxX: 1000,
+        minX: 0,
+        maxY: maxResistance,
+        minY: 0,
+      ),
+    );
+
+    return Stack(
+      children: [
+        chart,
+        // Pulsing dot overlay
+        if (bleData.ftmsData.watts > 0 && bleData.ftmsData.watts <= 1000 && maxResistance > 0)
+          Positioned(
+            left: _calculateDotXPosition(constraints.maxWidth),
+            bottom: _calculateDotYPosition(constraints.maxHeight),
+            child: AnimatedBuilder(
+              animation: _pulseController,
+              builder: (context, child) {
+                return Container(
+                  width: 12 + (_pulseController.value * 4),
+                  height: 12 + (_pulseController.value * 4),
+                  decoration: BoxDecoration(
+                    color: getCadenceColor(bleData.ftmsData.cadence),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: getCadenceColor(bleData.ftmsData.cadence).withOpacity(0.5),
+                        blurRadius: 10 * _pulseController.value,
+                        spreadRadius: 2 * _pulseController.value,
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
+
+  double _calculateDotXPosition(double chartWidth) {
+    // Chart padding and axis space estimation
+    const double leftPadding = 40; // Space for Y axis
+    const double rightPadding = 20;
+    final double availableWidth = chartWidth - leftPadding - rightPadding;
+    
+    // Calculate position based on current watts (0-1000 range)
+    final double xPosition = (bleData.ftmsData.watts * availableWidth) / 1000;
+    return leftPadding + xPosition;
+  }
+
+  double _calculateDotYPosition(double chartHeight) {
+    // Chart padding and axis space estimation
+    const double topPadding = 20;
+    const double bottomPadding = 40; // Space for X axis
+    final double availableHeight = chartHeight - topPadding - bottomPadding;
+    
+    // Calculate position based on current resistance (0-maxResistance range)
+    final double yPosition = (bleData.ftmsData.resistance * availableHeight) / maxResistance;
+    return yPosition;
+  }
+
   @override
   Widget build(BuildContext context) {
     // Update maxResistance whenever we rebuild
@@ -219,52 +294,8 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
               ),
             ),
             Expanded(
-              child: Stack(
-                children: [
-                  LineChart(
-                    LineChartData(
-                      lineBarsData: _createLineBarsData(),
-                      titlesData: FlTitlesData(
-                          bottomTitles: AxisTitles(
-                            axisNameWidget: Text('Watts (max 1000w)'),
-                          ),
-                          rightTitles: AxisTitles(),
-                          leftTitles: AxisTitles(axisNameWidget: Text('Motor Tension'))),
-                      borderData: FlBorderData(show: true),
-                      gridData: FlGridData(show: true),
-                      maxX: 1000,
-                      minX: 0,
-                      maxY: maxResistance,
-                      minY: 0,
-                    ),
-                  ),
-                  // Pulsing dot overlay
-                  if (bleData.ftmsData.watts > 0 && bleData.ftmsData.watts <= 1000 && maxResistance > 0)
-                    Positioned(
-                      left: (bleData.ftmsData.watts * (MediaQuery.of(context).size.width - 64)) / 1000,
-                      bottom: (bleData.ftmsData.resistance * (MediaQuery.of(context).size.height - 100)) / maxResistance,
-                      child: AnimatedBuilder(
-                        animation: _pulseController,
-                        builder: (context, child) {
-                          return Container(
-                            width: 12 + (_pulseController.value * 4),
-                            height: 12 + (_pulseController.value * 4),
-                            decoration: BoxDecoration(
-                              color: getCadenceColor(bleData.ftmsData.cadence),
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: getCadenceColor(bleData.ftmsData.cadence).withOpacity(0.5),
-                                  blurRadius: 10 * _pulseController.value,
-                                  spreadRadius: 2 * _pulseController.value,
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                ],
+              child: LayoutBuilder(
+                builder: _buildChart,
               ),
             ),
             SizedBox(height: 16),
