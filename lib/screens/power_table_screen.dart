@@ -22,15 +22,24 @@ class PowerTableScreen extends StatefulWidget {
   State<PowerTableScreen> createState() => _PowerTableScreenState();
 }
 
-class _PowerTableScreenState extends State<PowerTableScreen> {
+class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerProviderStateMixin {
   StreamSubscription<BluetoothConnectionState>? _connectionStateSubscription;
   late BLEData bleData;
   String statusString = '';
+  late AnimationController _pulseController;
+
   @override
   void initState() {
     super.initState();
     bleData = BLEDataManager.forDevice(this.widget.device);
     requestAllCadenceLines();
+
+    // Initialize pulse animation
+    _pulseController = AnimationController(
+      duration: const Duration(seconds: 1),
+      vsync: this,
+    )..repeat(reverse: true);
+
     // refresh the screen completely every VV seconds.
     Timer.periodic(const Duration(seconds: 15), (refreshTimer) {
       if (!this.widget.device.isConnected) {
@@ -47,6 +56,14 @@ class _PowerTableScreenState extends State<PowerTableScreen> {
         }
       }
     });
+
+    // Request target position every second
+    Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted && this.widget.device.isConnected) {
+        bleData.requestSetting(this.widget.device, targetPositionVname);
+      }
+    });
+
     // If the data is simulated, wait for a second before calling setState
     if (bleData.isSimulated) {
       this.bleData.isReadingOrWriting.value = true;
@@ -68,7 +85,15 @@ class _PowerTableScreenState extends State<PowerTableScreen> {
   void dispose() {
     _connectionStateSubscription?.cancel();
     this.bleData.isReadingOrWriting.removeListener(_rwListner);
+    _pulseController.dispose();
     super.dispose();
+  }
+
+  Color getCadenceColor(int cadence) {
+    if (cadence < 60) return Colors.red;
+    if (cadence < 80) return Colors.orange;
+    if (cadence <= 100) return Colors.green;
+    return Colors.red; // Too high cadence
   }
 
   bool _refreshBlocker = false;
@@ -176,18 +201,48 @@ class _PowerTableScreenState extends State<PowerTableScreen> {
               ),
             ),
             Expanded(
-              child: LineChart(
-                LineChartData(
-                  lineBarsData: _createLineBarsData(),
-                  titlesData: FlTitlesData(
-                      bottomTitles: AxisTitles(
-                        axisNameWidget: Text('Cadences:'),
+              child: Stack(
+                children: [
+                  LineChart(
+                    LineChartData(
+                      lineBarsData: _createLineBarsData(),
+                      titlesData: FlTitlesData(
+                          bottomTitles: AxisTitles(
+                            axisNameWidget: Text('Cadences:'),
+                          ),
+                          rightTitles: AxisTitles(),
+                          leftTitles: AxisTitles(axisNameWidget: Text('Motor Tension'))),
+                      borderData: FlBorderData(show: true),
+                      gridData: FlGridData(show: true),
+                    ),
+                  ),
+                  // Pulsing dot overlay
+                  if (bleData.ftmsData.watts > 0)
+                    Positioned(
+                      left: (bleData.ftmsData.watts / 30) * (MediaQuery.of(context).size.width - 64) / 40,
+                      bottom: (bleData.ftmsData.resistance * (MediaQuery.of(context).size.height - 100)) / 20000,
+                      child: AnimatedBuilder(
+                        animation: _pulseController,
+                        builder: (context, child) {
+                          return Container(
+                            width: 12 + (_pulseController.value * 4),
+                            height: 12 + (_pulseController.value * 4),
+                            decoration: BoxDecoration(
+                              color: getCadenceColor(bleData.ftmsData.cadence),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: getCadenceColor(bleData.ftmsData.cadence).withOpacity(0.5),
+                                  blurRadius: 10 * _pulseController.value,
+                                  spreadRadius: 2 * _pulseController.value,
+                                ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
-                      rightTitles: AxisTitles(),
-                      leftTitles: AxisTitles(axisNameWidget: Text('Motor Tension'))),
-                  borderData: FlBorderData(show: true),
-                  gridData: FlGridData(show: true),
-                ),
+                    ),
+                ],
               ),
             ),
             SizedBox(height: 16),
