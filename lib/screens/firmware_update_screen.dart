@@ -7,12 +7,14 @@
 
 import 'dart:async';
 import 'dart:io' as io;
+import 'dart:convert';
 import 'package:flutter/material.dart';
-
+import 'package:path_provider/path_provider.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter_archive/flutter_archive.dart';
 
 import '../utils/bleOTA.dart';
 import '../utils/bledata.dart';
@@ -32,9 +34,12 @@ class _FirmwareUpdateState extends State<FirmwareUpdateScreen> {
   final BleRepository bleRepo = BleRepository();
   String _githubFirmwareVersion = '';
   String _builtinFirmwareVersion = '';
+  String _betaFirmwareVersion = '';
   Color _githubVersionColor = Color.fromARGB(255, 242, 0, 255);
   Color _builtinVersionColor = Color.fromARGB(255, 242, 0, 255);
+  Color _betaVersionColor = Color.fromARGB(255, 242, 0, 255);
   Timer _loadingTimer = Timer.periodic(Duration(seconds: 30), (_loadingTimer) {});
+  String? _betaFirmwareUrl;
 
   OtaPackage? otaPackage;
 
@@ -52,8 +57,10 @@ class _FirmwareUpdateState extends State<FirmwareUpdateScreen> {
   final int BINARY = 1;
   final int PICKER = 2;
   final int URL = 3;
+  final int BETA = 4;
 
   final String URLString = "https://github.com/doudar/OTAUpdates/raw/main/firmware.bin";
+  
   @override
   void initState() {
     super.initState();
@@ -73,6 +80,8 @@ class _FirmwareUpdateState extends State<FirmwareUpdateScreen> {
               _isNewerVersion(_builtinFirmwareVersion, this.bleData.firmwareVersion) ? Colors.green : Colors.red;
           _githubVersionColor =
               _isNewerVersion(_githubFirmwareVersion, this.bleData.firmwareVersion) ? Colors.green : Colors.red;
+          _betaVersionColor =
+              _isNewerVersion(_betaFirmwareVersion, this.bleData.firmwareVersion) ? Colors.green : Colors.red;
         });
         _fwCheck.cancel();
       }
@@ -167,6 +176,7 @@ class _FirmwareUpdateState extends State<FirmwareUpdateScreen> {
     }
     await _fetchGithubFirmwareVersion();
     await _fetchBuiltinFirmwareVersion();
+    await _fetchBetaFirmwareVersion();
   }
 
   Future<void> _charListener() async {
@@ -216,8 +226,75 @@ class _FirmwareUpdateState extends State<FirmwareUpdateScreen> {
         _githubVersionColor =
             (this.bleData.firmwareVersion == "") ? Color.fromARGB(255, 242, 0, 255) : _githubVersionColor;
       });
-    } else {
-      // Handle HTTP request error...
+    }
+  }
+
+  Future<void> _fetchBetaFirmwareVersion() async {
+    try {
+      final response = await http.get(Uri.parse('https://api.github.com/repos/doudar/SmartSpin2k/releases/latest'));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final tagName = data['tag_name'] as String;
+        final assets = data['assets'] as List;
+        
+        for (var asset in assets) {
+          if (asset['name'].toString().endsWith('.bin.zip')) {
+            _betaFirmwareUrl = asset['browser_download_url'] as String;
+            break;
+          }
+        }
+
+        setState(() {
+          _betaFirmwareVersion = tagName;
+          _betaVersionColor = _isNewerVersion(tagName, this.bleData.firmwareVersion) ? Colors.green : Colors.red;
+          _betaVersionColor =
+              (this.bleData.firmwareVersion == "") ? Color.fromARGB(255, 242, 0, 255) : _betaVersionColor;
+        });
+      }
+    } catch (e) {
+      print('Error fetching beta firmware version: $e');
+    }
+  }
+
+  Future<String> _downloadAndExtractBetaFirmware() async {
+    if (_betaFirmwareUrl == null) {
+      throw Exception('Beta firmware URL not found');
+    }
+
+    // Get temporary directory
+    final tempDir = await getTemporaryDirectory();
+    final zipFile = io.File('${tempDir.path}/firmware.zip');
+    final extractDir = io.Directory('${tempDir.path}/firmware');
+
+    try {
+      // Download the zip file
+      final response = await http.get(Uri.parse(_betaFirmwareUrl!));
+      await zipFile.writeAsBytes(response.bodyBytes);
+
+      // Create extraction directory
+      if (await extractDir.exists()) {
+        await extractDir.delete(recursive: true);
+      }
+      await extractDir.create();
+
+      // Extract the zip file
+      await ZipFile.extractToDirectory(
+        zipFile: zipFile,
+        destinationDir: extractDir,
+      );
+
+      // Find and return the path to firmware.bin
+      final firmwareBin = io.File('${extractDir.path}/firmware.bin');
+      if (await firmwareBin.exists()) {
+        return firmwareBin.path;
+      } else {
+        throw Exception('firmware.bin not found in extracted files');
+      }
+    } finally {
+      // Cleanup
+      if (await zipFile.exists()) {
+        await zipFile.delete();
+      }
     }
   }
 
@@ -279,29 +356,26 @@ class _FirmwareUpdateState extends State<FirmwareUpdateScreen> {
     });
 
     try {
+      String? binFilePath;
+      String? url;
+
+      if (type == BETA) {
+        binFilePath = await _downloadAndExtractBetaFirmware();
+        type = BINARY; // Use BINARY type since we have a local file
+      } else {
+        binFilePath = 'assets/firmware.bin';
+        url = URLString;
+      }
+
       await otaPackage!.updateFirmware(
         this.widget.device,
         type,
         this.bleData.firmwareService,
         this.bleData.firmwareDataCharacteristic,
         this.bleData.firmwareControlCharacteristic,
-        binFilePath: 'assets/firmware.bin',
-        url: URLString,
+        binFilePath: binFilePath,
+        url: url,
       );
-
-      //   if (otaPackage.firmwareupdate) {
-      //     // Firmware update was successful
-
-      //     print('Firmware update was successful');
-      //   } else {
-      //     // Firmware update failed
-
-      //     print('Firmware update failed');
-      //   }
-      // } catch (e) {
-      //   // Handle errors during the update process
-
-      // print('Error during firmware update: $e');
     } finally {
       setState(() {
         updatingFirmware = false;
@@ -385,6 +459,24 @@ class _FirmwareUpdateState extends State<FirmwareUpdateScreen> {
                     textAlign: TextAlign.center,
                     'Latest Stable Firmware from Github\n${_githubFirmwareVersion}',
                     style: TextStyle(color: _githubVersionColor),
+                  ),
+                ),
+                SizedBox(height: 10),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: ThemeData().colorScheme.secondary,
+                      foregroundColor: ThemeData().colorScheme.onSecondary),
+                  onPressed: _betaFirmwareUrl == null ? null : () async {
+                    bool confirm = await _showConfirmDialog();
+                    if (confirm) {
+                      WakelockPlus.enable();
+                      startFirmwareUpdate(BETA);
+                    }
+                  },
+                  child: Text(
+                    textAlign: TextAlign.center,
+                    'Beta Firmware from Github\n${_betaFirmwareVersion}',
+                    style: TextStyle(color: _betaVersionColor),
                   ),
                 ),
               ],
