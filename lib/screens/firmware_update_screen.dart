@@ -17,6 +17,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_archive/flutter_archive.dart';
 
 import '../utils/bleOTA.dart';
+import '../utils/wifi_ota.dart';
 import '../utils/bledata.dart';
 import '../widgets/device_header.dart';
 
@@ -49,6 +50,7 @@ class _FirmwareUpdateState extends State<FirmwareUpdateScreen> {
   bool _loaded = false;
   DateTime? startTime;
   String timeRemaining = 'Calculating...';
+  bool _usingWifi = false;
 
   bool firmwareCharReceived = false;
   bool _uploadCompleteDialogShown = false;
@@ -147,25 +149,25 @@ class _FirmwareUpdateState extends State<FirmwareUpdateScreen> {
           builder: (BuildContext context) {
             return AlertDialog(
               title: Text('Confirm Firmware Update'),
-              content: Text('This process may take up to 5 minutes. \nAre you sure you want to update the firmware?'),
+              content: Text('Are you sure you want to update the firmware?'),
               actions: <Widget>[
                 TextButton(
                   child: Text('Cancel'),
                   onPressed: () {
-                    Navigator.of(context).pop(false); // User cancels the update
+                    Navigator.of(context).pop(false);
                   },
                 ),
                 TextButton(
                   child: Text('Confirm'),
                   onPressed: () {
-                    Navigator.of(context).pop(true); // User confirms the update
+                    Navigator.of(context).pop(true);
                   },
                 ),
               ],
             );
           },
         ) ??
-        false; // Return false if the dialog is dismissed
+        false;
   }
 
   Future<void> _initialize() async {
@@ -221,7 +223,6 @@ class _FirmwareUpdateState extends State<FirmwareUpdateScreen> {
       final githubVersion = response.body.trim();
       setState(() {
         _githubFirmwareVersion = githubVersion;
-        // Assuming this.bleData.firmwareVersion is in 'major.minor.patch' format
         _githubVersionColor = _isNewerVersion(githubVersion, this.bleData.firmwareVersion) ? Colors.green : Colors.red;
         _githubVersionColor =
             (this.bleData.firmwareVersion == "") ? Color.fromARGB(255, 242, 0, 255) : _githubVersionColor;
@@ -261,29 +262,24 @@ class _FirmwareUpdateState extends State<FirmwareUpdateScreen> {
       throw Exception('Beta firmware URL not found');
     }
 
-    // Get temporary directory
     final tempDir = await getTemporaryDirectory();
     final zipFile = io.File('${tempDir.path}/firmware.zip');
     final extractDir = io.Directory('${tempDir.path}/firmware');
 
     try {
-      // Download the zip file
       final response = await http.get(Uri.parse(_betaFirmwareUrl!));
       await zipFile.writeAsBytes(response.bodyBytes);
 
-      // Create extraction directory
       if (await extractDir.exists()) {
         await extractDir.delete(recursive: true);
       }
       await extractDir.create();
 
-      // Extract the zip file
       await ZipFile.extractToDirectory(
         zipFile: zipFile,
         destinationDir: extractDir,
       );
 
-      // Find and return the path to firmware.bin
       final firmwareBin = io.File('${extractDir.path}/firmware.bin');
       if (await firmwareBin.exists()) {
         return firmwareBin.path;
@@ -291,7 +287,6 @@ class _FirmwareUpdateState extends State<FirmwareUpdateScreen> {
         throw Exception('firmware.bin not found in extracted files');
       }
     } finally {
-      // Cleanup
       if (await zipFile.exists()) {
         await zipFile.delete();
       }
@@ -299,15 +294,10 @@ class _FirmwareUpdateState extends State<FirmwareUpdateScreen> {
   }
 
   bool _isNewerVersion(String versionA, String versionB) {
-    // Regular expression to extract numbers from the version strings
     final regex = RegExp(r'\d+');
-
-    // Extracting only the numeric parts of the version strings
     final versionAParts = regex.allMatches(versionA).map((m) => int.parse(m.group(0)!)).toList();
     final versionBParts = regex.allMatches(versionB).map((m) => int.parse(m.group(0)!)).toList();
 
-    // Assuming that both version strings will have at least three numeric parts (major, minor, patch)
-    // This comparison logic might need adjustment if the version format changes
     for (int i = 0; i < 3; i++) {
       if (i < versionAParts.length && i < versionBParts.length) {
         if (versionAParts[i] > versionBParts[i]) {
@@ -316,15 +306,11 @@ class _FirmwareUpdateState extends State<FirmwareUpdateScreen> {
           return false;
         }
       } else if (i >= versionAParts.length && i < versionBParts.length) {
-        // If versionA has fewer parts and we've not returned yet, versionB is newer
         return false;
       } else if (i < versionAParts.length && i >= versionBParts.length) {
-        // If versionB has fewer parts and we've not returned yet, versionA is newer
         return true;
       }
     }
-
-    // If we reach here, the versions are equal in terms of major.minor.patch
     return false;
   }
 
@@ -348,40 +334,86 @@ class _FirmwareUpdateState extends State<FirmwareUpdateScreen> {
     return "$hours:$minutes:$seconds";
   }
 
-  void startFirmwareUpdate(type) async {
+  Future<void> startFirmwareUpdate(type) async {
     if(this.bleData.isSimulated) return;
-    this.bleData.isUpdatingFirmware = true;
+    
     setState(() {
       updatingFirmware = true;
+      _usingWifi = true;
+      _progress = 0;
+      startTime = null;
+      timeRemaining = 'Calculating...';
     });
 
     try {
-      String? binFilePath;
+      String binFilePath;
       String? url;
 
       if (type == BETA) {
         binFilePath = await _downloadAndExtractBetaFirmware();
-        type = BINARY; // Use BINARY type since we have a local file
+      } else if (type == URL) {
+        // Download firmware from URL first
+        final tempDir = await getTemporaryDirectory();
+        binFilePath = '${tempDir.path}/firmware.bin';
+        final response = await http.get(Uri.parse(URLString));
+        await io.File(binFilePath).writeAsBytes(response.bodyBytes);
       } else {
         binFilePath = 'assets/firmware.bin';
-        url = URLString;
       }
 
-      await otaPackage!.updateFirmware(
-        this.widget.device,
-        type,
-        this.bleData.firmwareService,
-        this.bleData.firmwareDataCharacteristic,
-        this.bleData.firmwareControlCharacteristic,
-        binFilePath: binFilePath,
-        url: url,
+      // Try WiFi update first
+      final bool wifiSuccess = await WifiOTA.updateFirmware(
+        deviceName: widget.device.advName,
+        firmwarePath: binFilePath,
+        onProgress: (progress) {
+          setState(() {
+            _progress = progress;
+            updateProgress();
+          });
+        },
       );
-    } finally {
+
+      if (!wifiSuccess) {
+        // Show message about falling back to BLE
+        setState(() {
+          _usingWifi = false;
+          _progress = 0;
+          startTime = null;
+          timeRemaining = 'Calculating...';
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('WiFi update failed. Falling back to Bluetooth (this may take up to 5 minutes)...'),
+            duration: Duration(seconds: 5),
+          ),
+        );
+
+        // Fall back to BLE update
+        this.bleData.isUpdatingFirmware = true;
+        await otaPackage!.updateFirmware(
+          this.widget.device,
+          type,
+          this.bleData.firmwareService,
+          this.bleData.firmwareDataCharacteristic,
+          this.bleData.firmwareControlCharacteristic,
+          binFilePath: binFilePath,
+          url: url,
+        );
+        this.bleData.isUpdatingFirmware = false;
+      }
+
       setState(() {
         updatingFirmware = false;
       });
+      
+      _showUploadCompleteDialog(true);
+    } catch (e) {
+      setState(() {
+        updatingFirmware = false;
+      });
+      _showUploadCompleteDialog(false);
     }
-    this.bleData.isUpdatingFirmware = false;
   }
 
   List<Widget> _buildUpdateButtons() {
@@ -392,7 +424,7 @@ class _FirmwareUpdateState extends State<FirmwareUpdateScreen> {
               textAlign: TextAlign.center,
             )
           : Text(
-              "Use this tool to update the firmware over BLE. \n Note: It's recommended to update using the OTA web page instead.",
+              "Firmware will be uploaded via WiFi if available, falling back to BLE if needed.",
               textAlign: TextAlign.center,
             ),
       SizedBox(height: 20),
@@ -407,6 +439,7 @@ class _FirmwareUpdateState extends State<FirmwareUpdateScreen> {
                 minHeight: 10,
               ),
               Text('Time remaining: $timeRemaining'),
+              Text(_usingWifi ? 'Updating via WiFi...' : 'Updating via Bluetooth...'),
             ])
           : Column(
               children: <Widget>[
