@@ -14,7 +14,7 @@ class WifiOTA {
     try {
       final baseUrl = 'http://$deviceName.local';
       
-      // First verify device is reachable
+      // First check if OTA page is accessible
       try {
         final response = await http.get(Uri.parse('$baseUrl/OTAIndex'))
             .timeout(const Duration(seconds: 5));
@@ -24,6 +24,9 @@ class WifiOTA {
       } catch (e) {
         return false;
       }
+
+      // Give the device a moment to prepare for OTA
+      await Future.delayed(Duration(seconds: 2));
 
       // Prepare multipart request
       final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/update'));
