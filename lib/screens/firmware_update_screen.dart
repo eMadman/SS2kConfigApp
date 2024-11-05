@@ -96,9 +96,9 @@ class _FirmwareUpdateState extends State<FirmwareUpdateScreen> {
       }
     });
 
-    // Monitor device disconnection during firmware update. It should disconnect for 
+    // Monitor device disconnection during firmware update
     charSubscription = this.widget.device.connectionState.listen((state) {
-      if (!_usingWifi && state != BluetoothConnectionState.connected && updatingFirmware && _progress < 1) {
+      if (state != BluetoothConnectionState.connected && updatingFirmware && _progress < 1) {
         _showUploadCompleteDialog(false);
       }
     });
@@ -389,6 +389,12 @@ class _FirmwareUpdateState extends State<FirmwareUpdateScreen> {
           ),
         );
 
+        // Stop notifications before BLE update
+        if (bleData.indoorBikeCharacteristic != null) {
+          await bleData.indoorBikeCharacteristic!.setNotifyValue(false);
+        }
+        bleData.subscribed = false;
+        
         // Fall back to BLE update
         this.bleData.isUpdatingFirmware = true;
         await otaPackage!.updateFirmware(
@@ -401,6 +407,12 @@ class _FirmwareUpdateState extends State<FirmwareUpdateScreen> {
           url: url,
         );
         this.bleData.isUpdatingFirmware = false;
+
+        // Resume notifications after BLE update
+        if (bleData.indoorBikeCharacteristic != null) {
+          await bleData.indoorBikeCharacteristic!.setNotifyValue(true);
+        }
+        bleData.decode(this.widget.device);
       }
 
       setState(() {
@@ -409,6 +421,13 @@ class _FirmwareUpdateState extends State<FirmwareUpdateScreen> {
       
       _showUploadCompleteDialog(true);
     } catch (e) {
+      // Make sure to re-enable notifications even if update fails
+      if (!_usingWifi) {
+        if (bleData.indoorBikeCharacteristic != null) {
+          await bleData.indoorBikeCharacteristic!.setNotifyValue(true);
+        }
+        bleData.decode(this.widget.device);
+      }
       setState(() {
         updatingFirmware = false;
       });
