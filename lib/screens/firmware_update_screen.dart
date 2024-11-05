@@ -46,14 +46,11 @@ class _FirmwareUpdateState extends State<FirmwareUpdateScreen> {
 
   StreamSubscription<int>? progressSubscription;
   StreamSubscription<BluetoothConnectionState>? charSubscription;
-  StreamSubscription<BluetoothConnectionState>? disconnectSubscription;
-  Timer? _disconnectTimer;
   double _progress = 0;
   bool _loaded = false;
   DateTime? startTime;
   String timeRemaining = 'Calculating...';
   bool _usingWifi = false;
-  bool _waitingForDisconnect = false;
 
   bool firmwareCharReceived = false;
   bool _uploadCompleteDialogShown = false;
@@ -91,21 +88,34 @@ class _FirmwareUpdateState extends State<FirmwareUpdateScreen> {
         _fwCheck.cancel();
       }
     });
+    // Listen for firmware update progress and handle completion
+    progressSubscription?.onDone(() {
+      if (_progress >= 1) {
+        // Check if the upload is complete
+        _showUploadCompleteDialog(true);
+      }
+    });
+
+    // Monitor device disconnection during firmware update
+    charSubscription = this.widget.device.connectionState.listen((state) {
+      if (state != BluetoothConnectionState.connected && updatingFirmware && _progress < 1) {
+        _showUploadCompleteDialog(false);
+      }
+    });
   }
 
   @override
   void dispose() {
-    _disconnectTimer?.cancel();
     progressSubscription?.cancel();
-    charSubscription?.cancel();
-    disconnectSubscription?.cancel();
     _loadingTimer.cancel();
     WakelockPlus.disable();
     super.dispose();
   }
 
+  // Method to display dialog based on firmware update success or failure
   void _showUploadCompleteDialog(bool isSuccess) {
     if (!_uploadCompleteDialogShown) {
+      //Only show this dialog once.
       _uploadCompleteDialogShown = true;
       String title = isSuccess ? "Upload Successful" : "Upload Failed";
       String content = isSuccess
@@ -161,6 +171,7 @@ class _FirmwareUpdateState extends State<FirmwareUpdateScreen> {
   }
 
   Future<void> _initialize() async {
+    //check for demo mode
     if (!bleData.isSimulated) {
       otaPackage = Esp32OtaPackage(this.bleData.firmwareDataCharacteristic, this.bleData.firmwareControlCharacteristic);
       await _progressStreamSubscription();
@@ -176,6 +187,7 @@ class _FirmwareUpdateState extends State<FirmwareUpdateScreen> {
       if (mounted) {
         setState(() {});
       }
+      //remove the listener as soon as the characteristic is received.
       this.bleData.charReceived.removeListener(_charListener);
     }
   }
@@ -327,10 +339,10 @@ class _FirmwareUpdateState extends State<FirmwareUpdateScreen> {
     
     setState(() {
       updatingFirmware = true;
-      _waitingForDisconnect = true;
+      _usingWifi = true;
       _progress = 0;
       startTime = null;
-      timeRemaining = 'Checking WiFi availability...';
+      timeRemaining = 'Calculating...';
     });
 
     try {
@@ -340,6 +352,7 @@ class _FirmwareUpdateState extends State<FirmwareUpdateScreen> {
       if (type == BETA) {
         binFilePath = await _downloadAndExtractBetaFirmware();
       } else if (type == URL) {
+        // Download firmware from URL first
         final tempDir = await getTemporaryDirectory();
         binFilePath = '${tempDir.path}/firmware.bin';
         final response = await http.get(Uri.parse(URLString));
@@ -348,112 +361,58 @@ class _FirmwareUpdateState extends State<FirmwareUpdateScreen> {
         binFilePath = 'assets/firmware.bin';
       }
 
-      // Start monitoring for disconnect
-      bool deviceDisconnected = false;
-      disconnectSubscription = widget.device.connectionState.listen((state) async {
-        if (state == BluetoothConnectionState.disconnected && _waitingForDisconnect) {
-          deviceDisconnected = true;
-          _disconnectTimer?.cancel();
-          disconnectSubscription?.cancel();
-          
-          if (mounted) {
-            setState(() {
-              _waitingForDisconnect = false;
-              _usingWifi = true;
-              timeRemaining = 'Uploading via WiFi...';
-            });
-          }
-
-          // Proceed with WiFi update
-          final bool wifiSuccess = await WifiOTA.updateFirmware(
-            deviceName: widget.device.advName,
-            firmwarePath: binFilePath,
-            onProgress: (progress) {
-              if (mounted) {
-                setState(() {
-                  _progress = progress;
-                  updateProgress();
-                });
-              }
-            },
-          );
-
-          if (mounted) {
-            if (wifiSuccess) {
-              _showUploadCompleteDialog(true);
-            } else {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('WiFi update failed. Please try again or use the web interface directly.'),
-                  duration: Duration(seconds: 5),
-                ),
-              );
-            }
-            setState(() {
-              updatingFirmware = false;
-            });
-          }
-        }
-      });
-
-      // Set timer to fall back to BLE if no disconnect occurs
-      _disconnectTimer = Timer(Duration(seconds: 3), () {
-        if (!deviceDisconnected && mounted) {
-          disconnectSubscription?.cancel();
+      // Try WiFi update first
+      final bool wifiSuccess = await WifiOTA.updateFirmware(
+        deviceName: widget.device.advName,
+        firmwarePath: binFilePath,
+        onProgress: (progress) {
           setState(() {
-            _waitingForDisconnect = false;
-            _usingWifi = false;
+            _progress = progress;
+            updateProgress();
           });
-          _proceedWithBleUpdate(type, binFilePath, url);
-        }
+        },
+      );
+
+      if (!wifiSuccess) {
+        // Show message about falling back to BLE
+        setState(() {
+          _usingWifi = false;
+          _progress = 0;
+          startTime = null;
+          timeRemaining = 'Calculating...';
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('WiFi update failed. Falling back to Bluetooth (this may take up to 5 minutes)...'),
+            duration: Duration(seconds: 5),
+          ),
+        );
+
+        // Fall back to BLE update
+        this.bleData.isUpdatingFirmware = true;
+        await otaPackage!.updateFirmware(
+          this.widget.device,
+          type,
+          this.bleData.firmwareService,
+          this.bleData.firmwareDataCharacteristic,
+          this.bleData.firmwareControlCharacteristic,
+          binFilePath: binFilePath,
+          url: url,
+        );
+        this.bleData.isUpdatingFirmware = false;
+      }
+
+      setState(() {
+        updatingFirmware = false;
       });
-
+      
+      _showUploadCompleteDialog(true);
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          updatingFirmware = false;
-        });
-        _showUploadCompleteDialog(false);
-      }
-    }
-  }
-
-  Future<void> _proceedWithBleUpdate(int type, String binFilePath, String? url) async {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Device still connected - proceeding with Bluetooth update (this may take up to 5 minutes)...'),
-          duration: Duration(seconds: 5),
-        ),
-      );
-    }
-
-    try {
-      this.bleData.isUpdatingFirmware = true;
-      await otaPackage!.updateFirmware(
-        this.widget.device,
-        type,
-        this.bleData.firmwareService,
-        this.bleData.firmwareDataCharacteristic,
-        this.bleData.firmwareControlCharacteristic,
-        binFilePath: binFilePath,
-        url: url,
-      );
-      this.bleData.isUpdatingFirmware = false;
-
-      if (mounted) {
-        setState(() {
-          updatingFirmware = false;
-        });
-        _showUploadCompleteDialog(true);
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          updatingFirmware = false;
-        });
-        _showUploadCompleteDialog(false);
-      }
+      setState(() {
+        updatingFirmware = false;
+      });
+      _showUploadCompleteDialog(false);
     }
   }
 
@@ -461,13 +420,11 @@ class _FirmwareUpdateState extends State<FirmwareUpdateScreen> {
     return <Widget>[
       updatingFirmware
           ? Text(
-              _waitingForDisconnect 
-                ? "Checking WiFi update capability..."
-                : "Don't leave this screen until the update completes",
+              "Don't leave this screen until the update completes",
               textAlign: TextAlign.center,
             )
           : Text(
-              "The update will proceed via WiFi if available, otherwise Bluetooth will be used.",
+              "Firmware will be uploaded via WiFi if available, falling back to BLE if needed.",
               textAlign: TextAlign.center,
             ),
       SizedBox(height: 20),
