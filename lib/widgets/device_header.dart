@@ -29,6 +29,7 @@ class _DeviceHeaderState extends State<DeviceHeader> {
   Timer rssiTimer = Timer.periodic(Duration(seconds: 30), (rssiTimer) {});
   late BLEData bleData;
   bool _isRefreshing = false;
+  String _fwVersion = "";
 
   @override
   void initState() {
@@ -47,6 +48,7 @@ class _DeviceHeaderState extends State<DeviceHeader> {
         this.bleData.rssi.value = 0;
         await this.widget.device.connectAndUpdateStream();
         await this.bleData.setupConnection(this.widget.device);
+        _fwVersion = this.bleData.firmwareVersion;
       }
       if (mounted) {
         setState(() {});
@@ -57,19 +59,21 @@ class _DeviceHeaderState extends State<DeviceHeader> {
 
   Future<void> _refreshDeviceInfo() async {
     if (_isRefreshing) return;
-    
+
     try {
       _isRefreshing = true;
-      
+
       // Wait a bit for the device to stabilize after connection
       await Future.delayed(Duration(seconds: 1));
-      
+
       // Discover services to get new firmware version
       this.bleData.services = await this.widget.device.discoverServices();
       await this.bleData.updateCustomCharacter(this.widget.device);
-      
+
       if (mounted) {
-        setState(() {});
+        setState(() {
+          _fwVersion = this.bleData.firmwareVersion;
+        });
       }
     } catch (e) {
       print('Error refreshing device info: $e');
@@ -100,7 +104,9 @@ class _DeviceHeaderState extends State<DeviceHeader> {
       try {
         this.bleData.rssi.value = await this.widget.device.readRssi();
         if (mounted) {
-          setState(() {});
+          setState(() {
+            _fwVersion = this.bleData.firmwareVersion;
+          });
         }
       } catch (e) {
         this.bleData.rssi.value = 0;
@@ -268,7 +274,7 @@ class _DeviceHeaderState extends State<DeviceHeader> {
       ListTile(
         leading: rssiIcon,
         title: Text('Device: ${this.widget.device.platformName} (${this.widget.device.remoteId})'),
-        subtitle: Text('Version: ${this.bleData.firmwareVersion}'),
+        subtitle: Text('Version: ${_fwVersion}'),
         trailing: Icon(
           _isExpanded ? Icons.expand_less : Icons.expand_more,
           size: 40,
