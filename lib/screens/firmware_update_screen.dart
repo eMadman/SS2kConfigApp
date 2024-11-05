@@ -96,9 +96,9 @@ class _FirmwareUpdateState extends State<FirmwareUpdateScreen> {
       }
     });
 
-    // Monitor device disconnection during firmware update
+    // Monitor device disconnection during firmware update. It should disconnect for 
     charSubscription = this.widget.device.connectionState.listen((state) {
-      if (state != BluetoothConnectionState.connected && updatingFirmware && _progress < 1) {
+      if (!_usingWifi && state != BluetoothConnectionState.connected && updatingFirmware && _progress < 1) {
         _showUploadCompleteDialog(false);
       }
     });
