@@ -15,6 +15,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_archive/flutter_archive.dart';
+import 'package:file_picker/file_picker.dart';
 
 import '../utils/bleOTA.dart';
 import '../utils/wifi_ota.dart';
@@ -347,9 +348,23 @@ class _FirmwareUpdateState extends State<FirmwareUpdateScreen> {
 
     try {
       String binFilePath;
-      String? url;
 
-      if (type == BETA) {
+      if (type == PICKER) {
+        // Get firmware file path from picker
+        final result = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: ['bin'],
+        );
+        
+        if (result == null || result.files.isEmpty) {
+          setState(() {
+            updatingFirmware = false;
+          });
+          return;
+        }
+        
+        binFilePath = result.files.first.path!;
+      } else if (type == BETA) {
         binFilePath = await _downloadAndExtractBetaFirmware();
       } else if (type == URL) {
         // Download firmware from URL first
@@ -404,7 +419,6 @@ class _FirmwareUpdateState extends State<FirmwareUpdateScreen> {
           this.bleData.firmwareDataCharacteristic,
           this.bleData.firmwareControlCharacteristic,
           binFilePath: binFilePath,
-          url: url,
         );
         this.bleData.isUpdatingFirmware = false;
 
