@@ -71,28 +71,11 @@ class WifiOTA {
 
       // Create multipart request
       final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/update'));
-      
-      // Create a stream that reports progress
-      final byteStream = Stream.fromIterable([firmwareBytes]);
-      int bytesSent = 0;
-      final totalBytes = firmwareBytes.length;
 
-      // Transform the stream to track progress
-      final progressStream = byteStream.transform(
-        StreamTransformer<List<int>, List<int>>.fromHandlers(
-          handleData: (data, sink) {
-            bytesSent += data.length;
-            onProgress(0.1 + (0.8 * bytesSent / totalBytes));
-            sink.add(data);
-          },
-        ),
-      );
-
-      // Add firmware file with correct name and content type
-      final multipartFile = http.MultipartFile(
+      // Use a simple stream for all cases
+      final multipartFile = http.MultipartFile.fromBytes(
         'update',
-        progressStream,
-        totalBytes,
+        firmwareBytes,
         filename: 'firmware.bin',
         contentType: MediaType('application', 'octet-stream'),
       );
@@ -100,6 +83,8 @@ class WifiOTA {
 
       // Send request and wait only for headers
       print('WiFi OTA: Sending firmware...');
+      onProgress(0.5); // Update progress before send
+      
       final streamedResponse = await request.send();
       
       // If we get a 200 status code, consider it successful without waiting for body
