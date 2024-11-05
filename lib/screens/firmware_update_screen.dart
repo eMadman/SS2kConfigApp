@@ -90,7 +90,7 @@ class _FirmwareUpdateState extends State<FirmwareUpdateScreen> {
     });
     // Listen for firmware update progress and handle completion
     progressSubscription?.onDone(() {
-      if (_progress >= 1) {
+      if (_progress >= .99) {
         // Check if the upload is complete
         _showUploadCompleteDialog(true);
       }
@@ -462,23 +462,6 @@ class _FirmwareUpdateState extends State<FirmwareUpdateScreen> {
             ])
           : Column(
               children: <Widget>[
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: ThemeData().colorScheme.secondary,
-                      foregroundColor: ThemeData().colorScheme.onSecondary),
-                  onPressed: () async {
-                    bool confirm = await _showConfirmDialog();
-                    if (confirm) {
-                      WakelockPlus.enable();
-                      startFirmwareUpdate(BINARY);
-                    }
-                  },
-                  child: Text(
-                    textAlign: TextAlign.center,
-                    'Use App Bundled Firmware\n${_builtinFirmwareVersion}',
-                    style: TextStyle(color: _builtinVersionColor),
-                  ),
-                ),
                 SizedBox(height: 10),
                 io.Platform.isMacOS
                     ? SizedBox()
