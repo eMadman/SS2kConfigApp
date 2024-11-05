@@ -14,6 +14,7 @@ import '../utils/snackbar.dart';
 import '../utils/extra.dart';
 import '../utils/bledata.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import '../utils/constants.dart';
 
 class DeviceHeader extends StatefulWidget {
   final BluetoothDevice device;
@@ -40,6 +41,8 @@ class _DeviceHeaderState extends State<DeviceHeader> {
       if (state == BluetoothConnectionState.connected) {
         // When device connects/reconnects, update RSSI and refresh services
         this.bleData.rssi.value = await this.widget.device.readRssi();
+        await this.bleData.setupConnection(this.widget.device);
+        _fwVersion = this.bleData.firmwareVersion;
         if (!_isRefreshing) {
           await _refreshDeviceInfo();
         }
@@ -68,7 +71,7 @@ class _DeviceHeaderState extends State<DeviceHeader> {
 
       // Discover services to get new firmware version
       this.bleData.services = await this.widget.device.discoverServices();
-      await this.bleData.updateCustomCharacter(this.widget.device);
+      bleData.requestSetting(this.widget.device, fwVname);
 
       if (mounted) {
         setState(() {
@@ -103,6 +106,7 @@ class _DeviceHeaderState extends State<DeviceHeader> {
     if (this.widget.device.isConnected) {
       try {
         this.bleData.rssi.value = await this.widget.device.readRssi();
+        bleData.requestSetting(this.widget.device, fwVname);
         if (mounted) {
           setState(() {
             _fwVersion = this.bleData.firmwareVersion;

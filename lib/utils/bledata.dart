@@ -81,7 +81,6 @@ class BLEData {
   int FTMSmode = 0;
   bool simulateTargetWatts = false;
 
-
   List<List<int?>> powerTableData = List.generate(
     10,
     (i) => List.generate(38, (j) => null),
@@ -225,6 +224,9 @@ class BLEData {
     if (!subscribed) {
       decode(device);
       updateIndoorBikeData(device);
+    }
+    if(!_myCharacteristic!.isNotifying){
+      _myCharacteristic!.setNotifyValue(true);
     }
     if (!_lastRequestStopwatch.isRunning) {
       await requestSettings(device);
@@ -562,7 +564,7 @@ class BLEData {
                     c["value"] = data.getInt16(2, Endian.little).toString();
 
                     simulatedTargetWatts = (c["reference"] == "0x28") ? c["value"] : simulatedTargetWatts;
-                    if(c["vName"]==FTMSModeVname) {
+                    if (c["vName"] == FTMSModeVname) {
                       this.simulatedFTMSmode = c["value"];
                       FTMSmode = int.parse(this.simulatedFTMSmode);
                     }
@@ -575,11 +577,11 @@ class BLEData {
                 {
                   String b = (value[2] == 0) ? "false" : "true";
                   c["value"] = b;
-                  if(c["vName"]==simulateTargetWattsVname){
-                    if(b == "true"){
+                  if (c["vName"] == simulateTargetWattsVname) {
+                    if (b == "true") {
                       this.simulateTargetWatts = true;
                       print('Simulate target watts = $simulateTargetWatts');
-                    }else if(b=="false") {
+                    } else if (b == "false") {
                       this.simulateTargetWatts = false;
                       print('Simulate target watts = $simulateTargetWatts');
                     }
@@ -636,7 +638,10 @@ class BLEData {
                     print(c["value"]);
                   }
                   //Set the firmware version
-                  if (c["vName"] == fwVname) this.firmwareVersion = c["value"];
+                  if (c["vName"] == fwVname) {
+                    this.firmwareVersion = c["value"];
+                    print("FW Version Was Updated!! ${c['value']} ${this.firmwareVersion}");
+                  }
                   break;
                 }
               case "powerTableData":
