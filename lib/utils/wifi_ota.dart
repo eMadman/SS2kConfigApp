@@ -18,7 +18,6 @@ class WifiOTA {
       print('WiFi OTA: Starting update for device: $cleanDeviceName');
       print('WiFi OTA: Using firmware path: $firmwarePath');
       
-      // Initialize baseUrl - can be modified if mDNS fails
       var baseUrl = 'http://$cleanDeviceName.local';
       print('WiFi OTA: Attempting to connect to: $baseUrl');
 
@@ -26,7 +25,7 @@ class WifiOTA {
       try {
         print('WiFi OTA: Checking device availability...');
         final response = await http.get(Uri.parse('$baseUrl/OTAIndex'))
-            .timeout(const Duration(seconds: 10)); // Increased timeout for mDNS resolution
+            .timeout(const Duration(seconds: 10));
         if (response.statusCode != 200) {
           print('WiFi OTA: Device returned non-200 status code: ${response.statusCode}');
           return false;
@@ -43,7 +42,6 @@ class WifiOTA {
             print('WiFi OTA: Alternate URL failed with status code: ${altResponse.statusCode}');
             return false;
           }
-          // If alternate URL works, update baseUrl
           print('WiFi OTA: Alternate URL successful, using it for update');
           baseUrl = 'http://$cleanDeviceName';
         } catch (e2) {
@@ -65,14 +63,13 @@ class WifiOTA {
           firmwareBytes = await file.readAsBytes();
         }
         print('WiFi OTA: Firmware loaded, size: ${firmwareBytes.length} bytes');
-        onProgress(0.1); // Initial progress update
+        onProgress(0.1);
       } catch (e) {
         print('WiFi OTA: Failed to load firmware: $e');
         return false;
       }
 
-      // Prepare multipart request
-      print('WiFi OTA: Preparing upload request');
+      // Create multipart request
       final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/update'));
       
       // Create a stream that reports progress
@@ -85,7 +82,6 @@ class WifiOTA {
         StreamTransformer<List<int>, List<int>>.fromHandlers(
           handleData: (data, sink) {
             bytesSent += data.length;
-            // Scale progress from 10% to 90% during upload
             onProgress(0.1 + (0.8 * bytesSent / totalBytes));
             sink.add(data);
           },
@@ -94,7 +90,7 @@ class WifiOTA {
 
       // Add firmware file with correct name and content type
       final multipartFile = http.MultipartFile(
-        'update', // Form field name must match the ESP32 web interface
+        'update',
         progressStream,
         totalBytes,
         filename: 'firmware.bin',
@@ -102,31 +98,20 @@ class WifiOTA {
       );
       request.files.add(multipartFile);
 
-      // Send request
+      // Send request and wait only for headers
       print('WiFi OTA: Sending firmware...');
       final streamedResponse = await request.send();
       
-      if (streamedResponse.statusCode != 200) {
-        print('WiFi OTA: Upload failed with status code: ${streamedResponse.statusCode}');
-        return false;
+      // If we get a 200 status code, consider it successful without waiting for body
+      if (streamedResponse.statusCode == 200) {
+        print('WiFi OTA: Upload successful, device will reboot');
+        onProgress(1.0);
+        return true;
       }
+      
+      print('WiFi OTA: Upload failed with status code: ${streamedResponse.statusCode}');
+      return false;
 
-      print('WiFi OTA: Upload successful, processing response');
-      final contentLength = streamedResponse.contentLength ?? 0;
-      int bytesReceived = 0;
-
-      await for (final chunk in streamedResponse.stream) {
-        bytesReceived += chunk.length;
-        if (contentLength > 0) {
-          // Scale progress from 90% to 100% during response
-          onProgress(0.9 + (0.1 * bytesReceived / contentLength));
-        }
-      }
-
-      // Ensure we reach 100% at completion
-      onProgress(1.0);
-      print('WiFi OTA: Update completed successfully');
-      return true;
     } catch (e) {
       print('WiFi OTA Error: $e');
       return false;
