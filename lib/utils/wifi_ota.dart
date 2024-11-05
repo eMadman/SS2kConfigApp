@@ -25,36 +25,47 @@ class WifiOTA {
         return false;
       }
 
+      // Get the file size for progress calculation
+      final file = File(firmwarePath);
+      final totalBytes = await file.length();
+
+      // Create a stream from the file that reports progress
+      final fileStream = file.openRead();
+      int bytesSent = 0;
+
+      // Transform the stream to track progress while maintaining List<int> type
+      final progressStream = fileStream.transform(
+        StreamTransformer<List<int>, List<int>>.fromHandlers(
+          handleData: (data, sink) {
+            bytesSent += data.length;
+            onProgress(bytesSent / totalBytes);
+            sink.add(data);
+          },
+        ),
+      );
+
       // Prepare multipart request
       final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/update'));
       
       // Add firmware file with correct name and content type
-      final file = await http.MultipartFile.fromPath(
+      final multipartFile = http.MultipartFile(
         'update', // Form field name must match the ESP32 web interface
-        firmwarePath,
+        progressStream,
+        totalBytes,
+        filename: 'firmware.bin',
         contentType: MediaType('application', 'octet-stream'),
-        filename: 'firmware.bin'
       );
-      request.files.add(file);
+      request.files.add(multipartFile);
 
-      // Send request and track progress
+      // Send request
       final streamedResponse = await request.send();
       
-      if (streamedResponse.statusCode != 200) {
-        return false;
-      }
-
-      final contentLength = streamedResponse.contentLength ?? 0;
-      int bytesReceived = 0;
-
-      await for (final chunk in streamedResponse.stream) {
-        bytesReceived += chunk.length;
-        if (contentLength > 0) {
-          onProgress(bytesReceived / contentLength);
-        }
-      }
-
-      return true;
+      // Wait for the response
+      final response = await http.Response.fromStream(streamedResponse);
+      
+      // Return true if successful (200 OK)
+      return response.statusCode == 200;
+      
     } catch (e) {
       print('WiFi OTA Error: $e');
       return false;
