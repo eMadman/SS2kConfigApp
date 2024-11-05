@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:nativewrappers/_internal/vm/lib/ffi_allocation_patch.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:flutter/services.dart' show rootBundle;
@@ -84,8 +85,7 @@ class WifiOTA {
       // Send request and wait only for headers
       print('WiFi OTA: Sending firmware...');
       onProgress(0.5); // Update progress before send
-      
-      final streamedResponse = await request.send();
+      final streamedResponse = await request.send().timeout((const Duration(seconds: 20)));
       
       // If we get a 200 status code, consider it successful without waiting for body
       if (streamedResponse.statusCode == 200) {
