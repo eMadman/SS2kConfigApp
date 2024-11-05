@@ -127,10 +127,10 @@ class Esp32OtaPackage implements OtaPackage {
     print('value returned is this ------- ${value[0]}');
 
     if (value[0] == 5) {
-      print('OTA update finished');
+      print('BLE OTA update finished');
       firmwareupdate = true; // Firmware update was successful
     } else {
-      print('OTA update failed');
+      print('BLE OTA update failed');
       firmwareupdate = false; // Firmware update failed
     }
     _percentageController.close();
