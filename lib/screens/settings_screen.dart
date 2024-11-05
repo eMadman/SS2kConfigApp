@@ -23,13 +23,14 @@ class SettingsScreen extends StatefulWidget {
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
+class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObserver {
   StreamSubscription<BluetoothConnectionState>? _connectionStateSubscription;
   late BLEData bleData;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     bleData = BLEDataManager.forDevice(this.widget.device);
 
     // If the data is simulated, wait for a second before calling setState
@@ -45,6 +46,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           });
         }
       });
+    } else {
+      // Request fresh settings when screen initializes
+      _refreshSettings();
     }
 
     _connectionStateSubscription = this.widget.device.connectionState.listen((state) async {
@@ -58,7 +62,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh settings when dependencies change (e.g., coming back to this screen)
+    if (!bleData.isSimulated) {
+      _refreshSettings();
+    }
+  }
+
+  Future<void> _refreshSettings() async {
+    if (!bleData.isReadingOrWriting.value) {
+      await bleData.requestSettings(widget.device);
+      if (mounted) {
+        setState(() {});
+      }
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _connectionStateSubscription?.cancel();
     this.bleData.isReadingOrWriting.removeListener(_rwListner);
     super.dispose();
