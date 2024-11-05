@@ -19,6 +19,7 @@ class WifiOTA {
         final response = await http.get(Uri.parse('$baseUrl/OTAIndex'))
             .timeout(const Duration(seconds: 5));
         if (response.statusCode != 200) {
+          print('Timer expired and WiFi return code not 200 $response.statusCode');
           return false;
         }
       } catch (e) {
@@ -60,12 +61,22 @@ class WifiOTA {
       // Send request
       final streamedResponse = await request.send();
       
-      // Wait for the response
-      final response = await http.Response.fromStream(streamedResponse);
-      
-      // Return true if successful (200 OK)
-      return response.statusCode == 200;
-      
+      if (streamedResponse.statusCode != 200) {
+        print('WiFi return code not 200 $streamedResponse.statusCode');
+        return false;
+      }
+
+      final contentLength = streamedResponse.contentLength ?? 0;
+      int bytesReceived = 0;
+
+      await for (final chunk in streamedResponse.stream) {
+        bytesReceived += chunk.length;
+        if (contentLength > 0) {
+          onProgress(bytesReceived / contentLength);
+        }
+      }
+
+      return true;
     } catch (e) {
       print('WiFi OTA Error: $e');
       return false;
