@@ -30,7 +30,7 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
   late AnimationController _pulseController;
   double maxResistance = 0;
   final GlobalKey _chartKey = GlobalKey();
-  
+
   // Trail tracking
   final List<Map<String, double>> _positionHistory = [];
   static const int maxTrailLength = 10;
@@ -163,7 +163,7 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
     _refreshBlocker = true;
     await Future.delayed(Duration(microseconds: 500));
 
-    if(bleData.FTMSmode == 0  || bleData.simulateTargetWatts==false){
+    if (bleData.FTMSmode == 0 || bleData.simulateTargetWatts == false) {
       bleData.simulatedTargetWatts = "";
     }
     if (mounted) {
@@ -197,7 +197,8 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
 
   void _updatePositionHistory(double x, double y) {
     final now = DateTime.now();
-    if (now.difference(_lastPositionUpdate).inMilliseconds >= 100) { // Update every 100ms
+    if (now.difference(_lastPositionUpdate).inMilliseconds >= 100) {
+      // Update every 100ms
       _positionHistory.add({'x': x, 'y': y});
       if (_positionHistory.length > maxTrailLength) {
         _positionHistory.removeAt(0);
@@ -288,7 +289,7 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
     final double leftPadding = chartWidth * leftPaddingPercent;
     final double rightPadding = chartWidth * rightPaddingPercent;
     final double availableWidth = chartWidth - leftPadding - rightPadding;
-    
+
     // Calculate position based on current watts (0-1000 range)
     final double xPosition = (bleData.ftmsData.watts * availableWidth) / 1000;
     return leftPadding + xPosition;
@@ -299,7 +300,7 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
     final double topPadding = chartHeight * topPaddingPercent;
     final double bottomPadding = chartHeight * bottomPaddingPercent;
     final double availableHeight = chartHeight - topPadding - bottomPadding;
-    
+
     // Calculate position based on current resistance (0-maxResistance range)
     final double yPosition = (bleData.ftmsData.resistance * availableHeight) / maxResistance;
     return yPosition;
