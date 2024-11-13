@@ -5,14 +5,13 @@
  * SPDX-License-Identifier: GPL-2.0-only
  */
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/snackbar.dart';
 import '../utils/extra.dart';
 import '../utils/bledata.dart';
+import '../utils/power_table_management.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../utils/constants.dart';
 
@@ -166,33 +165,8 @@ class _DeviceHeaderState extends State<DeviceHeader> {
     }
   }
 
-  Future onSaveSettingsPressed() async {
-    try {
-      await this.bleData.saveAllSettings(this.widget.device);
-      Snackbar.show(ABC.c, "Settings Saved", success: true);
-    } catch (e) {
-      Snackbar.show(ABC.c, prettyException("Save Settings Failed ", e), success: false);
-    }
-  }
-
-  Future onSaveLocalPressed() async {
-    try {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      prefs.setString('user', jsonEncode(this.bleData.customCharacteristic));
-      Snackbar.show(ABC.c, "Settings Saved", success: true);
-    } catch (e) {
-      Snackbar.show(ABC.c, prettyException("Save Local Failed ", e), success: false);
-    }
-  }
-
-  Future onLoadLocalPressed() async {
-    try {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      this.bleData.customCharacteristic = jsonDecode(prefs.getString('user')!);
-      Snackbar.show(ABC.c, "Settings Loaded", success: true);
-    } catch (e) {
-      Snackbar.show(ABC.c, prettyException("Load local failed. Do you have a backup?", e), success: false);
-    }
+  Future onPowerTablePressed() async {
+    await PowerTableManager.showPowerTableMenu(context, bleData, widget.device);
   }
 
   Future onRebootPressed() async {
@@ -213,15 +187,6 @@ class _DeviceHeaderState extends State<DeviceHeader> {
       Snackbar.show(ABC.c, "SmartSpin2k has been reset to defaults", success: true);
     } catch (e) {
       Snackbar.show(ABC.c, prettyException("Reset Failed ", e), success: false);
-    }
-  }
-
-  Future onResetPowerTablePressed() async {
-    try {
-      await this.bleData.resetPowerTable(this.widget.device);
-      Snackbar.show(ABC.c, "The Power Table has been deleted.", success: true);
-    } catch (e) {
-      Snackbar.show(ABC.c, prettyException("Reset Power Table Failed ", e), success: false);
     }
   }
 
@@ -293,10 +258,7 @@ class _DeviceHeaderState extends State<DeviceHeader> {
           _buildActionButton('Refresh', FontAwesomeIcons.rotate, onDiscoverServicesPressed),
           _buildActionButton('Reboot SS2k', FontAwesomeIcons.arrowRotateRight, onRebootPressed),
           _buildActionButton('Set Defaults', FontAwesomeIcons.arrowRotateLeft, onResetPressed),
-          _buildActionButton('Clear Powertable', FontAwesomeIcons.xmark, onResetPowerTablePressed),
-          _buildActionButton('Save To SS2k', FontAwesomeIcons.floppyDisk, onSaveSettingsPressed),
-          _buildActionButton('Backup Settings', FontAwesomeIcons.solidFloppyDisk, onSaveLocalPressed),
-          _buildActionButton('Load Backup', FontAwesomeIcons.upload, onLoadLocalPressed),
+          _buildActionButton('Manage PowerTable', FontAwesomeIcons.table, onPowerTablePressed),
         ]),
         crossFadeState: _isExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
         duration: Duration(milliseconds: 500),
