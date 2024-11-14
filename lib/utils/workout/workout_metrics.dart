@@ -21,10 +21,6 @@ class WorkoutMetrics extends StatelessWidget {
   Widget build(BuildContext context) {
     final metrics = [
       WorkoutMetric.elapsedTime(seconds: elapsedTime),
-      WorkoutMetric(
-        label: 'Next Interval',
-        value: _formatDuration(timeToNextSegment),
-      ),
       WorkoutMetric.power(watts: bleData.ftmsData.watts),
       WorkoutMetric(
         label: 'Target',
@@ -32,16 +28,32 @@ class WorkoutMetrics extends StatelessWidget {
         unit: 'W',
       ),
       WorkoutMetric.cadence(rpm: bleData.ftmsData.cadence),
-      if (bleData.ftmsData.heartRate != 0) WorkoutMetric.heartRate(bpm: bleData.ftmsData.heartRate),
+      if (bleData.ftmsData.heartRate != 0)
+        WorkoutMetric.heartRate(bpm: bleData.ftmsData.heartRate),
+      WorkoutMetric(
+        label: 'Next Block',
+        value: _formatDuration(timeToNextSegment),
+      ),
     ];
 
-    return FadeTransition(
-      opacity: ReverseAnimation(fadeAnimation),
-      child: Card(
-        margin: EdgeInsets.all(WorkoutPadding.small),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          WorkoutMetricRow(metrics: metrics),
-        ]),
+    return Center(
+      child: FadeTransition(
+        opacity: ReverseAnimation(fadeAnimation),
+        child: Card(
+          margin: EdgeInsets.symmetric(
+            horizontal: WorkoutPadding.small,
+            vertical: WorkoutSpacing.small,
+          ),
+          child: Container(
+            width: double.infinity,
+            alignment: Alignment.center,
+            padding: EdgeInsets.symmetric(
+              horizontal: WorkoutPadding.standard,
+              vertical: WorkoutPadding.small,
+            ),
+            child: WorkoutMetricRow(metrics: metrics),
+          ),
+        ),
       ),
     );
   }
@@ -50,7 +62,7 @@ class WorkoutMetrics extends StatelessWidget {
     final hours = seconds ~/ 3600;
     final minutes = (seconds % 3600) ~/ 60;
     final remainingSeconds = seconds % 60;
-
+    
     return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
   }
 }

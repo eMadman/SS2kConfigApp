@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
+import 'workout_constants.dart';
 
 class WorkoutMetricRow extends StatelessWidget {
   final List<WorkoutMetric> metrics;
@@ -11,17 +12,46 @@ class WorkoutMetricRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: metrics.map((metric) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            child: MetricBox(metric: metric),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Calculate total width of all metrics
+        double totalWidth = metrics.fold(0.0, (sum, metric) {
+          return sum + _calculateMetricWidth(metric.value) + (2 * WorkoutPadding.metricHorizontal);
+        });
+
+        // If total width is less than available width, center the row
+        if (totalWidth <= constraints.maxWidth) {
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: metrics.map((metric) {
+              return Padding(
+                padding: EdgeInsets.symmetric(horizontal: WorkoutPadding.metricHorizontal),
+                child: MetricBox(metric: metric),
+              );
+            }).toList(),
           );
-        }).toList(),
-      ),
+        }
+
+        // Otherwise, use scrollable row
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: metrics.map((metric) {
+              return Padding(
+                padding: EdgeInsets.symmetric(horizontal: WorkoutPadding.metricHorizontal),
+                child: MetricBox(metric: metric),
+              );
+            }).toList(),
+          ),
+        );
+      },
     );
+  }
+
+  double _calculateMetricWidth(String value) {
+    double width = value.length * 20.0;
+    return width.clamp(MetricBox.minWidth, MetricBox.maxWidth);
   }
 }
 
