@@ -37,6 +37,9 @@ class WorkoutSizes {
   
   /// Height of the cadence indicator
   static const double cadenceIndicatorHeight = 20.0;
+
+  /// Radius of the actual power dot
+  static const double actualPowerDotRadius = 2.0;
 }
 
 /// Font size constants
@@ -73,6 +76,9 @@ class WorkoutOpacity {
   
   /// Opacity for segment borders
   static const double segmentBorder = 0.3;
+
+  /// Opacity for actual power line
+  static const double actualPowerLine = 0.8;
 }
 
 /// Stroke width constants for lines and borders
@@ -82,4 +88,7 @@ class WorkoutStroke {
   
   /// Width for cadence indicator
   static const double cadenceIndicator = 2.0;
+
+  /// Width for actual power line
+  static const double actualPowerLine = 1.5;
 }

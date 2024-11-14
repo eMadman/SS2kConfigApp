@@ -5,6 +5,7 @@ import '../utils/workout/workout_parser.dart';
 import '../utils/workout/workout_painter.dart';
 import '../utils/workout/workout_metrics.dart';
 import '../utils/workout/workout_constants.dart';
+import '../utils/workout/workout_controller.dart';
 import '../utils/bledata.dart';
 import '../widgets/device_header.dart';
 import 'dart:async';
@@ -18,24 +19,21 @@ class WorkoutScreen extends StatefulWidget {
 }
 
 class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProviderStateMixin {
-  List<WorkoutSegment> _segments = [];
-  double _maxPower = 0;
-  double _totalDuration = 0;
-  double _ftpValue = 200; // Default FTP value
   String? _workoutName;
-  bool _isPlaying = false;
-  double _progressPosition = 0;
-  Timer? _progressTimer;
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
   late BLEData bleData;
+  late WorkoutController _workoutController;
   bool _refreshBlocker = false;
   StreamSubscription<BluetoothConnectionState>? _connectionStateSubscription;
+  final ScrollController _scrollController = ScrollController();
+  double _lastScrollPosition = 0;
 
   @override
   void initState() {
     super.initState();
     bleData = BLEDataManager.forDevice(widget.device);
+    _workoutController = WorkoutController(bleData);
     _fadeController = AnimationController(
       duration: WorkoutDurations.fadeAnimation,
       vsync: this,
@@ -45,6 +43,18 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadSampleWorkout();
       rwSubscription();
+    });
+
+    _workoutController.addListener(() {
+      if (_workoutController.isPlaying) {
+        _fadeController.forward();
+        _updateScrollPosition();
+      } else {
+        _fadeController.reverse();
+      }
+      setState(() {
+        _workoutName = _workoutController.workoutName;
+      });
     });
 
     // Periodic connection check
@@ -58,6 +68,31 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
       } else {
         if (!mounted) {
           refreshTimer.cancel();
+        }
+      }
+    });
+  }
+
+  void _updateScrollPosition() {
+    if (!mounted || !_scrollController.hasClients) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_workoutController.isPlaying && _scrollController.hasClients) {
+        final viewportWidth = _scrollController.position.viewportDimension;
+        final totalWidth = _scrollController.position.maxScrollExtent + viewportWidth;
+        final progressWidth = totalWidth * _workoutController.progressPosition;
+        
+        // Calculate the target scroll position to keep the indicator centered
+        final targetScroll = progressWidth - (viewportWidth / 2);
+        
+        // Only scroll if we've moved enough to warrant it
+        if ((targetScroll - _lastScrollPosition).abs() > 1.0) {
+          _scrollController.animateTo(
+            targetScroll.clamp(0.0, _scrollController.position.maxScrollExtent),
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+          );
+          _lastScrollPosition = targetScroll;
         }
       }
     });
@@ -89,23 +124,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
   @override
   void dispose() {
     _fadeController.dispose();
-    _progressTimer?.cancel();
     _connectionStateSubscription?.cancel();
     bleData.isReadingOrWriting.removeListener(_rwListener);
+    _workoutController.dispose();
+    _scrollController.dispose();
     super.dispose();
-  }
-
-  void _togglePlayPause() {
-    setState(() {
-      _isPlaying = !_isPlaying;
-      if (_isPlaying) {
-        _fadeController.forward();
-        _startProgress();
-      } else {
-        _fadeController.reverse();
-        _progressTimer?.cancel();
-      }
-    });
   }
 
   Future<void> _pickAndLoadWorkout() async {
@@ -128,11 +151,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
           throw Exception('Invalid workout file format. Expected .zwo file content.');
         }
         
-        setState(() {
-          _workoutName = file.name;
-        });
-        
-        _loadWorkout(content);
+        _workoutController.loadWorkout(content);
       }
     } catch (e) {
       if (mounted) {
@@ -150,6 +169,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
   void _loadSampleWorkout() {
     const sampleWorkout = '''
 <workout_file>
+    <name>Sample Workout</name>
     <workout>
         <Warmup Duration="600" PowerLow="0.4" PowerHigh="0.75" Cadence="85" />
         <SteadyState Duration="300" Power="0.75" Cadence="90" />
@@ -163,115 +183,25 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
 </workout_file>
 ''';
 
-    _loadWorkout(sampleWorkout);
-  }
-
-  void _loadWorkout(String xmlContent) {
-    try {
-      final parsedSegments = WorkoutParser.parseZwoFile(xmlContent);
-      
-      double maxPower = 0;
-      double totalDuration = 0;
-      
-      for (var segment in parsedSegments) {
-        if (segment.isRamp) {
-          maxPower = [maxPower, segment.powerLow, segment.powerHigh]
-              .reduce((a, b) => a > b ? a : b);
-        } else {
-          maxPower = [maxPower, segment.powerLow]
-              .reduce((a, b) => a > b ? a : b);
-        }
-        totalDuration += segment.duration;
-      }
-
-      maxPower *= 1.1;
-      
-      setState(() {
-        _segments = parsedSegments;
-        _maxPower = maxPower;
-        _totalDuration = totalDuration;
-        _progressPosition = 0;
-      });
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error loading workout: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  String _formatDuration(int seconds) {
-    final hours = seconds ~/ 3600;
-    final minutes = (seconds % 3600) ~/ 60;
-    final remainingSeconds = seconds % 60;
-    
-    if (hours > 0) {
-      return '${hours}h ${minutes}m ${remainingSeconds}s';
-    } else if (minutes > 0) {
-      return '${minutes}m ${remainingSeconds}s';
-    } else {
-      return '${remainingSeconds}s';
-    }
-  }
-
-  void _startProgress() {
-    _progressTimer?.cancel();
-    _progressTimer = Timer.periodic(WorkoutDurations.progressUpdateInterval, (timer) {
-      setState(() {
-        _progressPosition += WorkoutDurations.progressUpdateInterval.inMilliseconds / (_totalDuration * 1000);
-        if (_progressPosition >= 1.0) {
-          _progressPosition = 0;
-          _isPlaying = false;
-          _fadeController.reverse();
-          timer.cancel();
-        }
-
-        // Update target watts based on current position
-        if (_segments.isNotEmpty) {
-          double currentTime = _progressPosition * _totalDuration;
-          double elapsedTime = 0;
-          
-          for (var segment in _segments) {
-            if (currentTime >= elapsedTime && currentTime < elapsedTime + segment.duration) {
-              double segmentProgress = (currentTime - elapsedTime) / segment.duration;
-              double targetPower;
-              
-              if (segment.isRamp) {
-                targetPower = segment.powerLow + (segment.powerHigh - segment.powerLow) * segmentProgress;
-              } else {
-                targetPower = segment.powerLow;
-              }
-              
-              bleData.ftmsData.targetERG = (targetPower * _ftpValue).round();
-              break;
-            }
-            elapsedTime += segment.duration;
-          }
-        }
-      });
-    });
+    _workoutController.loadWorkout(sampleWorkout);
   }
 
   Widget _buildWorkoutSummary() {
-    if (_segments.isEmpty) return const SizedBox.shrink();
+    if (_workoutController.segments.isEmpty) return const SizedBox.shrink();
 
-    int totalTime = _totalDuration.round();
+    int totalTime = _workoutController.totalDuration.round();
     double normalizedWork = 0;
     
-    for (var segment in _segments) {
+    for (var segment in _workoutController.segments) {
       if (segment.isRamp) {
         normalizedWork += segment.duration * 
-            ((segment.powerLow + segment.powerHigh) / 2) * _ftpValue;
+            ((segment.powerLow + segment.powerHigh) / 2) * _workoutController.ftpValue;
       } else {
-        normalizedWork += segment.duration * segment.powerLow * _ftpValue;
+        normalizedWork += segment.duration * segment.powerLow * _workoutController.ftpValue;
       }
     }
     
-    final intensityFactor = (normalizedWork / totalTime) / _ftpValue;
+    final intensityFactor = (normalizedWork / totalTime) / _workoutController.ftpValue;
     final tss = (totalTime * intensityFactor * intensityFactor) / 36;
 
     return FadeTransition(
@@ -293,7 +223,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
                 children: [
                   _SummaryItem(
                     label: 'Duration',
-                    value: _formatDuration(totalTime),
+                    value: _workoutController.formatDuration(totalTime),
                     icon: Icons.timer,
                   ),
                   _SummaryItem(
@@ -315,11 +245,63 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
     );
   }
 
+  Widget _buildControls() {
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: WorkoutPadding.small),
+      child: Column(
+        children: [
+          // FTP Input at the top
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: WorkoutPadding.standard),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                const Text('FTP: '),
+                SizedBox(
+                  width: WorkoutSizes.ftpFieldWidth,
+                  child: TextField(
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      suffix: const Text('W'),
+                      contentPadding: EdgeInsets.symmetric(horizontal: WorkoutPadding.small),
+                    ),
+                    controller: TextEditingController(
+                      text: _workoutController.ftpValue.round().toString(),
+                    ),
+                    onSubmitted: (value) => _workoutController.updateFTP(double.tryParse(value)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: WorkoutSpacing.medium),
+          // Centered play controls
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconButton(
+                icon: Icon(_workoutController.isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled),
+                iconSize: 48,
+                onPressed: _workoutController.togglePlayPause,
+              ),
+              if (_workoutController.isPlaying)
+                IconButton(
+                  icon: const Icon(Icons.skip_next),
+                  iconSize: 48,
+                  onPressed: _workoutController.skipToNextSegment,
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_workoutName ?? 'Workout'),
+        title: Text(_workoutName ?? ''),
         actions: [
           IconButton(
             icon: const Icon(Icons.folder_open),
@@ -336,25 +318,28 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
               WorkoutMetrics(
                 bleData: bleData,
                 fadeAnimation: _fadeAnimation,
+                elapsedTime: _workoutController.elapsedSeconds,
+                timeToNextSegment: _workoutController.currentSegmentTimeRemaining,
               ),
             ],
           ),
           Expanded(
-            child: _segments.isEmpty
+            child: _workoutController.segments.isEmpty
                 ? const Center(child: CircularProgressIndicator())
                 : LayoutBuilder(
                     builder: (context, constraints) {
                       final graphPadding = WorkoutPadding.standard;
                       final powerLabelsWidth = 0.0;
-                      final availableWidth = (_totalDuration > 3600 
+                      final availableWidth = (_workoutController.totalDuration > 3600 
                           ? constraints.maxWidth * 2 
                           : constraints.maxWidth) - (graphPadding * 2) - powerLabelsWidth;
-                      final widthScale = availableWidth / _totalDuration;
+                      final widthScale = availableWidth / _workoutController.totalDuration;
 
                       return SingleChildScrollView(
+                        controller: _scrollController,
                         scrollDirection: Axis.horizontal,
                         child: SizedBox(
-                          width: _totalDuration > 3600 
+                          width: _workoutController.totalDuration > 3600 
                               ? constraints.maxWidth * 2 
                               : constraints.maxWidth,
                           child: Stack(
@@ -366,10 +351,13 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
                                     Expanded(
                                       child: CustomPaint(
                                         painter: WorkoutPainter(
-                                          segments: _segments,
-                                          maxPower: _maxPower,
-                                          totalDuration: _totalDuration,
-                                          ftpValue: _ftpValue,
+                                          segments: _workoutController.segments,
+                                          maxPower: _workoutController.maxPower,
+                                          totalDuration: _workoutController.totalDuration,
+                                          ftpValue: _workoutController.ftpValue,
+                                          currentProgress: _workoutController.progressPosition,
+                                          actualPowerPoints: _workoutController.actualPowerPoints,
+                                          currentPower: _workoutController.isPlaying ? bleData.ftmsData.watts / _workoutController.ftpValue : null,
                                         ),
                                         child: Container(),
                                       ),
@@ -378,9 +366,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
                                   ],
                                 ),
                               ),
-                              if (_isPlaying)
+                              if (_workoutController.isPlaying)
                                 Positioned(
-                                  left: (powerLabelsWidth + graphPadding) + (_progressPosition * _totalDuration * widthScale),
+                                  left: (powerLabelsWidth + graphPadding) + (_workoutController.progressPosition * _workoutController.totalDuration * widthScale),
                                   top: WorkoutPadding.standard,
                                   bottom: WorkoutSpacing.medium + WorkoutPadding.standard,
                                   child: Container(
@@ -395,51 +383,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
                     },
                   ),
           ),
-          Padding(
-            padding: EdgeInsets.all(WorkoutPadding.small),
-            child: Column(
-              children: [
-                IconButton(
-                  icon: Icon(_isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled),
-                  iconSize: 48,
-                  onPressed: _togglePlayPause,
-                ),
-                SizedBox(height: WorkoutSpacing.small),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Total Duration: ${_formatDuration(_totalDuration.round())}',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    Row(
-                      children: [
-                        const Text('FTP: '),
-                        SizedBox(
-                          width: WorkoutSizes.ftpFieldWidth,
-                          child: TextField(
-                            keyboardType: TextInputType.number,
-                            decoration: InputDecoration(
-                              suffix: const Text('W'),
-                              contentPadding: EdgeInsets.symmetric(horizontal: WorkoutPadding.small),
-                            ),
-                            controller: TextEditingController(
-                              text: _ftpValue.round().toString(),
-                            ),
-                            onSubmitted: (value) {
-                              setState(() {
-                                _ftpValue = double.tryParse(value) ?? _ftpValue;
-                              });
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+          _buildControls(),
         ],
       ),
     );

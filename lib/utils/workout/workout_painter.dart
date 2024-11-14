@@ -7,12 +7,18 @@ class WorkoutPainter extends CustomPainter {
   final double maxPower;
   final double totalDuration;
   final double ftpValue;
+  final double currentProgress;
+  final List<double> actualPowerPoints;
+  final double? currentPower;
 
   WorkoutPainter({
     required this.segments,
     required this.maxPower,
     required this.totalDuration,
     required this.ftpValue,
+    required this.currentProgress,
+    required this.actualPowerPoints,
+    this.currentPower,
   });
 
   @override
@@ -80,6 +86,64 @@ class WorkoutPainter extends CustomPainter {
     
     // Draw time grid lines and labels
     _drawTimeGrid(canvas, size, widthScale);
+
+    // Draw actual power line and dots
+    _drawActualPower(canvas, size, heightScale, widthScale);
+  }
+
+  void _drawActualPower(Canvas canvas, Size size, double heightScale, double widthScale) {
+    if (actualPowerPoints.isEmpty) return;
+
+    final powerPaint = Paint()
+      ..color = Colors.red.withOpacity(WorkoutOpacity.actualPowerLine)
+      ..strokeWidth = WorkoutStroke.actualPowerLine
+      ..style = PaintingStyle.stroke;
+
+    final dotPaint = Paint()
+      ..color = Colors.red
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+    bool isFirstPoint = true;
+
+    // Calculate time interval between points
+    final timeInterval = totalDuration / (actualPowerPoints.length - 1);
+
+    for (int i = 0; i < actualPowerPoints.length; i++) {
+      final power = actualPowerPoints[i];
+      final x = (i * timeInterval) * widthScale;
+      final y = size.height - (power * heightScale);
+
+      if (isFirstPoint) {
+        path.moveTo(x, y);
+        isFirstPoint = false;
+      } else {
+        path.lineTo(x, y);
+      }
+
+      // Draw power dot
+      canvas.drawCircle(
+        Offset(x, y),
+        WorkoutSizes.actualPowerDotRadius,
+        dotPaint,
+      );
+    }
+
+    // Draw the power line
+    canvas.drawPath(path, powerPaint);
+
+    // Draw current power dot if available
+    if (currentPower != null) {
+      final x = currentProgress * size.width;
+      final y = size.height - (currentPower! * heightScale);
+      
+      // Draw larger dot for current power
+      canvas.drawCircle(
+        Offset(x, y),
+        WorkoutSizes.actualPowerDotRadius * 1.5,
+        dotPaint,
+      );
+    }
   }
 
   void _drawPowerGrid(Canvas canvas, Size size, double heightScale) {

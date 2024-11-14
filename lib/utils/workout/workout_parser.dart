@@ -11,6 +11,16 @@ enum SegmentType {
   maxEffort
 }
 
+class WorkoutData {
+  final String? name;
+  final List<WorkoutSegment> segments;
+
+  WorkoutData({
+    this.name,
+    required this.segments,
+  });
+}
+
 class WorkoutSegment {
   final SegmentType type;
   final int duration; // Duration in seconds
@@ -64,8 +74,7 @@ class WorkoutSegment {
 }
 
 class WorkoutParser {
-  static List<WorkoutSegment> parseZwoFile(String xmlContent) {
-    final List<WorkoutSegment> segments = [];
+  static WorkoutData parseZwoFile(String xmlContent) {
     final document = XmlDocument.parse(xmlContent);
     
     // Find the workout element
@@ -76,7 +85,12 @@ class WorkoutParser {
     
     final workoutElement = workoutElements.first;
     
-    // Process each segment
+    // Extract workout name
+    final nameElements = document.findAllElements('name');
+    String? workoutName = nameElements.isNotEmpty ? nameElements.first.text : null;
+    
+    // Process segments
+    final List<WorkoutSegment> segments = [];
     for (var segment in workoutElement.children) {
       if (segment is! XmlElement) continue;
 
@@ -87,7 +101,10 @@ class WorkoutParser {
       }
     }
     
-    return segments;
+    return WorkoutData(
+      name: workoutName,
+      segments: segments,
+    );
   }
 
   static List<WorkoutSegment>? _parseSegment(XmlElement element) {
