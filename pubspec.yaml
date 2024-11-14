@@ -20,7 +20,6 @@ dependencies:
   flutter_launcher_icons: ^0.13.1
   flutter_native_splash: ^2.3.9
   shared_preferences: ^2.2.0
-  file_picker: ^8.1.2
   #flutter_ota: ^0.1.4
   wakelock_plus: ^1.2.5
   http: ^1.2.0
@@ -29,6 +28,8 @@ dependencies:
   fl_chart: ^0.68.0
   flutter_archive: ^6.0.3
   path_provider: ^2.1.5
+  xml: ^6.5.0
+  file_picker: ^8.1.4
 
 flutter:
   uses-material-design: true
