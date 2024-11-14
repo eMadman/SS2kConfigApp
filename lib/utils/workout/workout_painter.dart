@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'workout_parser.dart';
+import 'workout_constants.dart';
 
 class WorkoutPainter extends CustomPainter {
   final List<WorkoutSegment> segments;
@@ -58,8 +59,8 @@ class WorkoutPainter extends CustomPainter {
       // Draw segment border
       final borderPaint = Paint()
         ..style = PaintingStyle.stroke
-        ..color = Colors.black.withOpacity(0.3)
-        ..strokeWidth = 1;
+        ..color = Colors.black.withOpacity(WorkoutOpacity.segmentBorder)
+        ..strokeWidth = WorkoutStroke.border;
       
       canvas.drawRect(
         Rect.fromLTWH(currentX, 0, segmentWidth, size.height),
@@ -84,16 +85,16 @@ class WorkoutPainter extends CustomPainter {
   void _drawPowerGrid(Canvas canvas, Size size, double heightScale) {
     final gridPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..color = Colors.grey.withOpacity(0.5)
-      ..strokeWidth = 1;
+      ..color = Colors.grey.withOpacity(WorkoutOpacity.gridLines)
+      ..strokeWidth = WorkoutStroke.border;
 
     final textPainter = TextPainter(
       textDirection: TextDirection.ltr,
       textAlign: TextAlign.right,
     );
 
-    // Draw horizontal power lines every 50 watts
-    for (var power = 0.0; power <= maxPower * ftpValue; power += 50) {
+    // Draw horizontal power lines at intervals
+    for (var power = 0.0; power <= maxPower * ftpValue; power += WorkoutGrid.powerLineInterval) {
       final y = size.height - (power * heightScale);
       
       canvas.drawLine(
@@ -107,27 +108,27 @@ class WorkoutPainter extends CustomPainter {
         text: '${power.round()}w',
         style: TextStyle(
           color: Colors.grey[600],
-          fontSize: 10,
+          fontSize: WorkoutFontSizes.small,
         ),
       );
       textPainter.layout();
-      textPainter.paint(canvas, Offset(-textPainter.width - 5, y - textPainter.height / 2));
+      textPainter.paint(canvas, Offset(-textPainter.width + 10, y - textPainter.height / 2));
     }
   }
 
   void _drawTimeGrid(Canvas canvas, Size size, double widthScale) {
     final gridPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..color = Colors.grey.withOpacity(0.5)
-      ..strokeWidth = 1;
+      ..color = Colors.grey.withOpacity(WorkoutOpacity.gridLines)
+      ..strokeWidth = WorkoutStroke.border;
 
     final textPainter = TextPainter(
       textDirection: TextDirection.ltr,
       textAlign: TextAlign.center,
     );
 
-    // Draw vertical time lines every 5 minutes
-    for (var time = 0.0; time <= totalDuration; time += 300) {
+    // Draw vertical time lines at intervals
+    for (var time = 0.0; time <= totalDuration; time += WorkoutGrid.timeLineInterval) {
       final x = time * widthScale;
       
       canvas.drawLine(
@@ -141,7 +142,7 @@ class WorkoutPainter extends CustomPainter {
         text: '${(time / 60).round()}min',
         style: TextStyle(
           color: Colors.grey[600],
-          fontSize: 10,
+          fontSize: WorkoutFontSizes.small,
         ),
       );
       textPainter.layout();
@@ -153,12 +154,11 @@ class WorkoutPainter extends CustomPainter {
     final paint = Paint()
       ..style = PaintingStyle.stroke
       ..color = Colors.purple
-      ..strokeWidth = 2;
+      ..strokeWidth = WorkoutStroke.cadenceIndicator;
 
-    final double indicatorHeight = 20;
     final path = Path();
     
-    path.moveTo(x + width / 2, height - indicatorHeight);
+    path.moveTo(x + width / 2, height - WorkoutSizes.cadenceIndicatorHeight);
     path.lineTo(x + width / 2, height);
     
     canvas.drawPath(path, paint);
@@ -173,9 +173,9 @@ class WorkoutPainter extends CustomPainter {
     
     textPainter.text = TextSpan(
       text: '$cadenceText rpm',
-      style: const TextStyle(
+      style: TextStyle(
         color: Colors.purple,
-        fontSize: 10,
+        fontSize: WorkoutFontSizes.small,
         fontWeight: FontWeight.bold,
       ),
     );
@@ -185,7 +185,7 @@ class WorkoutPainter extends CustomPainter {
       canvas,
       Offset(
         x + width / 2 - textPainter.width / 2,
-        height - indicatorHeight - textPainter.height - 2,
+        height - WorkoutSizes.cadenceIndicatorHeight - textPainter.height - 2,
       ),
     );
   }
@@ -193,23 +193,23 @@ class WorkoutPainter extends CustomPainter {
   Color _getSegmentColor(WorkoutSegment segment) {
     switch (segment.type) {
       case SegmentType.warmup:
-        return Colors.green.withOpacity(0.7);
+        return Colors.green.withOpacity(WorkoutOpacity.segmentColor);
       case SegmentType.cooldown:
-        return Colors.blue.withOpacity(0.7);
+        return Colors.blue.withOpacity(WorkoutOpacity.segmentColor);
       case SegmentType.intervalT:
         return segment.powerLow == segment.onPower 
-            ? Colors.orange.withOpacity(0.7)  // Work interval
-            : Colors.blue.withOpacity(0.7);   // Rest interval
+            ? Colors.orange.withOpacity(WorkoutOpacity.segmentColor)  // Work interval
+            : Colors.blue.withOpacity(WorkoutOpacity.segmentColor);   // Rest interval
       case SegmentType.steadyState:
-        return Colors.yellow.withOpacity(0.7);
+        return Colors.yellow.withOpacity(WorkoutOpacity.segmentColor);
       case SegmentType.ramp:
-        return Colors.purple.withOpacity(0.7);
+        return Colors.purple.withOpacity(WorkoutOpacity.segmentColor);
       case SegmentType.freeRide:
-        return Colors.grey.withOpacity(0.7);
+        return Colors.grey.withOpacity(WorkoutOpacity.segmentColor);
       case SegmentType.maxEffort:
-        return Colors.red.withOpacity(0.7);
+        return Colors.red.withOpacity(WorkoutOpacity.segmentColor);
       default:
-        return Colors.grey.withOpacity(0.7);
+        return Colors.grey.withOpacity(WorkoutOpacity.segmentColor);
     }
   }
 

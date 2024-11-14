@@ -139,9 +139,9 @@ class _MainDeviceScreenState extends State<MainDeviceScreen> {
             Navigator.of(context)
                 .push(MaterialPageRoute(builder: (context) => PowerTableScreen(device: this.widget.device)));
           }),
-                    _buildCard('assets/GitHub-logo.png', "Workout", () {
+          _buildCard('assets/GitHub-logo.png', "Workout", () {
             Navigator.of(context)
-                .push(MaterialPageRoute(builder: (context) => WorkoutScreen()));
+                .push(MaterialPageRoute(builder: (context) => WorkoutScreen(device: this.widget.device)));
           }),
           _buildCard('assets/GitHub-logo.png', "Update Firmware", () {
             Navigator.of(context)
