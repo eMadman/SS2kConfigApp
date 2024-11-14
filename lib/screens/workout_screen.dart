@@ -29,6 +29,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
   StreamSubscription<BluetoothConnectionState>? _connectionStateSubscription;
   final ScrollController _scrollController = ScrollController();
   double _lastScrollPosition = 0;
+  late TextEditingController _ftpController;
   
   // Animation for workout width
   late AnimationController _zoomController;
@@ -41,6 +42,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
     super.initState();
     bleData = BLEDataManager.forDevice(widget.device);
     _workoutController = WorkoutController(bleData);
+    _ftpController = TextEditingController(text: _workoutController.ftpValue.round().toString());
     
     // Initialize fade animation
     _fadeController = AnimationController(
@@ -78,6 +80,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
       }
       setState(() {
         _workoutName = _workoutController.workoutName;
+        // Update FTP controller when FTP changes and not playing
+        if (!_workoutController.isPlaying && 
+            _ftpController.text != _workoutController.ftpValue.round().toString()) {
+          _ftpController.text = _workoutController.ftpValue.round().toString();
+        }
       });
     });
 
@@ -153,6 +160,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
     bleData.isReadingOrWriting.removeListener(_rwListener);
     _workoutController.dispose();
     _scrollController.dispose();
+    _ftpController.dispose();
     super.dispose();
   }
 
@@ -273,33 +281,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
   Widget _buildControls() {
     return Container(
       padding: EdgeInsets.symmetric(vertical: WorkoutPadding.small),
-      child: Column(
+      child: Stack(
+        alignment: Alignment.center,
         children: [
-          // FTP Input at the top
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: WorkoutPadding.standard),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                const Text('FTP: '),
-                SizedBox(
-                  width: WorkoutSizes.ftpFieldWidth,
-                  child: TextField(
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      suffix: const Text('W'),
-                      contentPadding: EdgeInsets.symmetric(horizontal: WorkoutPadding.small),
-                    ),
-                    controller: TextEditingController(
-                      text: _workoutController.ftpValue.round().toString(),
-                    ),
-                    onSubmitted: (value) => _workoutController.updateFTP(double.tryParse(value)),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(height: WorkoutSpacing.medium),
           // Centered play controls
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -316,6 +300,31 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
                   onPressed: _workoutController.skipToNextSegment,
                 ),
             ],
+          ),
+          // FTP Input positioned on the right
+          Positioned(
+            right: WorkoutPadding.standard,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('FTP: '),
+                SizedBox(
+                  width: WorkoutSizes.ftpFieldWidth,
+                  child: TextField(
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      suffix: const Text('W'),
+                      contentPadding: EdgeInsets.symmetric(horizontal: WorkoutPadding.small),
+                      enabled: !_workoutController.isPlaying,
+                      hintText: _workoutController.isPlaying ? 'Pause to edit' : null,
+                    ),
+                    enabled: !_workoutController.isPlaying,
+                    controller: _ftpController,
+                    onSubmitted: (value) => _workoutController.updateFTP(double.tryParse(value)),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -382,7 +391,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
                                               ftpValue: _workoutController.ftpValue,
                                               currentProgress: _workoutController.progressPosition,
                                               actualPowerPoints: _workoutController.actualPowerPoints,
-                                              currentPower: _workoutController.isPlaying ? bleData.ftmsData.watts / _workoutController.ftpValue : null,
+                                              currentPower: _workoutController.isPlaying ? bleData.ftmsData.watts.toDouble() : null,
                                             ),
                                             child: Container(),
                                           ),

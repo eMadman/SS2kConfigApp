@@ -13,7 +13,7 @@ class WorkoutController extends ChangeNotifier {
   bool isPlaying = false;
   double progressPosition = 0;
   Timer? progressTimer;
-  List<double> actualPowerPoints = [];
+  Map<int, double> actualPowerPoints = {}; // Map time index to power value
   int elapsedSeconds = 0;
   int currentSegmentTimeRemaining = 0;
   final BLEData bleData;
@@ -24,7 +24,7 @@ class WorkoutController extends ChangeNotifier {
     isPlaying = !isPlaying;
     if (isPlaying) {
       startProgress();
-      actualPowerPoints = []; // Reset power points when starting
+      actualPowerPoints = {}; // Reset power points when starting
       elapsedSeconds = 0;
     } else {
       progressTimer?.cancel();
@@ -83,7 +83,7 @@ class WorkoutController extends ChangeNotifier {
       maxPower = maxPowerTemp;
       totalDuration = totalDurationTemp;
       progressPosition = 0;
-      actualPowerPoints = [];
+      actualPowerPoints = {};
       elapsedSeconds = 0;
       notifyListeners();
     } catch (e) {
@@ -97,9 +97,8 @@ class WorkoutController extends ChangeNotifier {
       progressPosition += WorkoutDurations.progressUpdateInterval.inMilliseconds / (totalDuration * 1000);
       elapsedSeconds = (progressPosition * totalDuration).round();
       
-      // Record actual power point
-      final currentPower = bleData.ftmsData.watts / ftpValue;
-      actualPowerPoints.add(currentPower);
+      // Store power value at current time index
+      actualPowerPoints[elapsedSeconds] = bleData.ftmsData.watts.toDouble();
       
       if (progressPosition >= 1.0) {
         progressPosition = 0;
@@ -134,6 +133,46 @@ class WorkoutController extends ChangeNotifier {
       }
       notifyListeners();
     });
+  }
+
+  // Get power points as a list up to current time
+  List<double> getPowerPointsUpToNow() {
+    final maxSeconds = elapsedSeconds;
+    List<double> points = List.filled(maxSeconds + 1, 0);
+    
+    for (int i = 0; i <= maxSeconds; i++) {
+      // Use the actual power value if we have it, otherwise interpolate between known points
+      if (actualPowerPoints.containsKey(i)) {
+        points[i] = actualPowerPoints[i]!;
+      } else {
+        // Find nearest known points before and after
+        int? beforeTime = actualPowerPoints.keys
+            .where((time) => time < i)
+            .fold<int?>(null, (max, time) => max == null || time > max ? time : max);
+        int? afterTime = actualPowerPoints.keys
+            .where((time) => time > i)
+            .fold<int?>(null, (min, time) => min == null || time < min ? time : min);
+            
+        if (beforeTime != null && afterTime != null) {
+          // Interpolate between known points
+          double beforeValue = actualPowerPoints[beforeTime]!;
+          double afterValue = actualPowerPoints[afterTime]!;
+          double ratio = (i - beforeTime) / (afterTime - beforeTime);
+          points[i] = beforeValue + (afterValue - beforeValue) * ratio;
+        } else if (beforeTime != null) {
+          // Use last known value
+          points[i] = actualPowerPoints[beforeTime]!;
+        } else if (afterTime != null) {
+          // Use next known value
+          points[i] = actualPowerPoints[afterTime]!;
+        } else {
+          // No known values, use current power
+          points[i] = bleData.ftmsData.watts.toDouble();
+        }
+      }
+    }
+    
+    return points;
   }
 
   void updateFTP(double? newValue) {
