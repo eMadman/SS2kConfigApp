@@ -4,6 +4,7 @@ import '../bledata.dart';
 import '../ftmsControlPoint.dart';
 import 'workout_parser.dart';
 import 'workout_constants.dart';
+import 'workout_storage.dart';
 import 'sounds.dart';
 
 class WorkoutController extends ChangeNotifier {
@@ -20,10 +21,36 @@ class WorkoutController extends ChangeNotifier {
   int currentSegmentTimeRemaining = 0;
   final BLEData bleData;
   bool _isCountingDown = false;
+  String? _currentWorkoutContent;
 
   WorkoutController(this.bleData) {
     // Reset simulation parameters on initialization
     _resetSimulationParameters();
+    _initializeController();
+  }
+
+  Future<void> _initializeController() async {
+    // Load saved FTP value
+    ftpValue = await WorkoutStorage.loadFTP();
+    
+    // Load saved workout state
+    final savedState = await WorkoutStorage.loadWorkoutState();
+    final workoutContent = savedState['workoutContent'] as String?;
+    
+    if (workoutContent != null) {
+      // Load the saved workout
+      loadWorkout(workoutContent);
+      
+      // Restore progress
+      progressPosition = savedState['progressPosition'] as double;
+      elapsedSeconds = savedState['elapsedSeconds'] as int;
+      
+      // Resume if it was playing
+      if (savedState['wasPlaying'] as bool) {
+        isPlaying = true;
+        startProgress();
+      }
+    }
   }
 
   // Helper method to reset simulation parameters
@@ -54,6 +81,7 @@ class WorkoutController extends ChangeNotifier {
       // Reset simulation parameters when stopping
       _resetSimulationParameters();
     }
+    _saveWorkoutState();
     notifyListeners();
   }
 
@@ -73,12 +101,14 @@ class WorkoutController extends ChangeNotifier {
           // Play workout end sound and reset simulation parameters
           workoutSoundGenerator.workoutEndSound();
           _resetSimulationParameters();
+          _saveWorkoutState();
           notifyListeners();
           return;
         }
         
         // Skip to the start of the next segment
         progressPosition = (elapsedTime + segments[i].duration) / totalDuration;
+        _saveWorkoutState();
         notifyListeners();
         return;
       }
@@ -113,10 +143,12 @@ class WorkoutController extends ChangeNotifier {
       progressPosition = 0;
       actualPowerPoints = {};
       elapsedSeconds = 0;
+      _currentWorkoutContent = xmlContent;
       
       // Reset simulation parameters when loading new workout
       _resetSimulationParameters();
       
+      _saveWorkoutState();
       notifyListeners();
     } catch (e) {
       rethrow;
@@ -139,6 +171,7 @@ class WorkoutController extends ChangeNotifier {
         // Play workout end sound and reset simulation parameters
         workoutSoundGenerator.workoutEndSound();
         _resetSimulationParameters();
+        _saveWorkoutState();
         notifyListeners();
         return;
       }
@@ -175,8 +208,19 @@ class WorkoutController extends ChangeNotifier {
           elapsedTime += segment.duration;
         }
       }
+
+      _saveWorkoutState();
       notifyListeners();
     });
+  }
+
+  Future<void> _saveWorkoutState() async {
+    await WorkoutStorage.saveWorkoutState(
+      workoutContent: _currentWorkoutContent,
+      progressPosition: progressPosition,
+      elapsedSeconds: elapsedSeconds,
+      isPlaying: isPlaying,
+    );
   }
 
   // Get power points as a list up to current time
@@ -219,9 +263,10 @@ class WorkoutController extends ChangeNotifier {
     return points;
   }
 
-  void updateFTP(double? newValue) {
+  Future<void> updateFTP(double? newValue) async {
     if (newValue != null) {
       ftpValue = newValue;
+      await WorkoutStorage.saveFTP(ftpValue);
       notifyListeners();
     }
   }

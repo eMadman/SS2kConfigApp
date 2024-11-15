@@ -7,6 +7,7 @@ import '../utils/workout/workout_painter.dart';
 import '../utils/workout/workout_metrics.dart';
 import '../utils/workout/workout_constants.dart';
 import '../utils/workout/workout_controller.dart';
+import '../utils/workout/workout_storage.dart';
 import '../utils/workout/sounds.dart';
 import '../utils/bledata.dart';
 import '../widgets/device_header.dart';
@@ -68,7 +69,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
     ));
     
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadSampleWorkout();
       rwSubscription();
     });
 
@@ -167,6 +167,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
     _scrollController.dispose();
     _ftpController.dispose();
     workoutSoundGenerator.dispose();
+    // Clear workout state if it's completed
+    if (_workoutController.progressPosition >= 1.0) {
+      WorkoutStorage.clearWorkoutState();
+    }
     super.dispose();
   }
 
@@ -203,26 +207,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
         );
       }
     }
-  }
-
-  void _loadSampleWorkout() {
-    const sampleWorkout = '''
-<workout_file>
-    <name>Sample Workout</name>
-    <workout>
-        <Warmup Duration="600" PowerLow="0.4" PowerHigh="0.75" Cadence="85" />
-        <SteadyState Duration="300" Power="0.75" Cadence="90" />
-        <IntervalsT Repeat="4" 
-                   OnDuration="60" OffDuration="60"
-                   OnPower="1.0" OffPower="0.5"
-                   CadenceLow="95" CadenceHigh="105" />
-        <Ramp Duration="300" PowerLow="0.6" PowerHigh="0.9" />
-        <Cooldown Duration="300" PowerLow="0.75" PowerHigh="0.4" />
-    </workout>
-</workout_file>
-''';
-
-    _workoutController.loadWorkout(sampleWorkout);
   }
 
   Widget _buildWorkoutSummary() {
@@ -410,7 +394,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
                                   ),
                                   if (_workoutController.isPlaying)
                                     Positioned(
-                                      // Calculate position using the same scale as the CustomPaint
                                       left: _workoutController.progressPosition * (totalWidth - (2 * WorkoutPadding.standard)) + WorkoutPadding.standard,
                                       top: WorkoutPadding.standard,
                                       bottom: WorkoutSpacing.medium + WorkoutPadding.standard,
