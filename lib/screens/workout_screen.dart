@@ -6,6 +6,8 @@ import 'package:flutter/rendering.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:cross_file/cross_file.dart';
 import '../utils/workout/workout_parser.dart';
 import '../utils/workout/workout_painter.dart';
 import '../utils/workout/workout_metrics.dart';
@@ -17,6 +19,8 @@ import '../utils/bledata.dart';
 import '../widgets/device_header.dart';
 import '../widgets/workout_library.dart';
 import 'dart:async';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 
 class WorkoutScreen extends StatefulWidget {
   final BluetoothDevice device;
@@ -28,6 +32,7 @@ class WorkoutScreen extends StatefulWidget {
 
 class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateMixin {
   String? _workoutName;
+  String? _currentWorkoutContent;
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
   late BLEData bleData;
@@ -36,7 +41,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
   StreamSubscription<BluetoothConnectionState>? _connectionStateSubscription;
   final ScrollController _scrollController = ScrollController();
   double _lastScrollPosition = 0;
-  late TextEditingController _ftpController;
   final GlobalKey _workoutGraphKey = GlobalKey();
   
   late AnimationController _zoomController;
@@ -44,13 +48,25 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
   static const double previewMinutes = 40;
   static const double playingMinutes = 15;
 
+  // FTP wheel scroll controller
+  late final FixedExtentScrollController _ftpScrollController;
+  static const int minFTP = 50;
+  static const int maxFTP = 500;
+  static const int ftpStep = 1;
+  late int _selectedFTP;
+
   @override
   void initState() {
     super.initState();
     WakelockPlus.enable();
     bleData = BLEDataManager.forDevice(widget.device);
     _workoutController = WorkoutController(bleData);
-    _ftpController = TextEditingController(text: _workoutController.ftpValue.round().toString());
+    _selectedFTP = _workoutController.ftpValue.round();
+    
+    // Initialize FTP scroll controller with current value
+    _ftpScrollController = FixedExtentScrollController(
+      initialItem: (_selectedFTP - minFTP) ~/ ftpStep,
+    );
     
     _fadeController = AnimationController(
       duration: WorkoutDurations.fadeAnimation,
@@ -83,12 +99,16 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
       } else {
         _fadeController.reverse();
         _zoomController.reverse();
+        // Check if workout completed naturally (reached the end)
+        if (_workoutController.progressPosition >= 1.0) {
+          _showExportDialog();
+        }
       }
       setState(() {
         _workoutName = _workoutController.workoutName;
-        if (!_workoutController.isPlaying && 
-            _ftpController.text != _workoutController.ftpValue.round().toString()) {
-          _ftpController.text = _workoutController.ftpValue.round().toString();
+        if (_selectedFTP != _workoutController.ftpValue.round()) {
+          _selectedFTP = _workoutController.ftpValue.round();
+          _ftpScrollController.jumpToItem((_selectedFTP - minFTP) ~/ ftpStep);
         }
       });
     });
@@ -110,8 +130,17 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
 
   Future<void> _loadDefaultWorkout() async {
     try {
-      final content = await rootBundle.loadString('assets/test_workout.zwo');
+      final content = await rootBundle.loadString('assets/Anthonys_Mix.zwo');
       _workoutController.loadWorkout(content);
+      _currentWorkoutContent = content;
+      // Wait for the graph to be rendered
+      await Future.delayed(const Duration(milliseconds: 100));
+      
+      // Generate and save thumbnail for default workout
+      final thumbnail = await _captureWorkoutThumbnail();
+      if (thumbnail != null) {
+        await WorkoutStorage.updateWorkoutThumbnail(WorkoutStorage.defaultWorkoutName, thumbnail);
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -139,6 +168,131 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
       return null;
     }
   }
+
+  Future<void> _showStopWorkoutDialog() async {
+  final bool? shouldStop = await showDialog<bool>(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: const Text('End Workout?'),
+        content: const Text('Do you want to end your workout?'),
+        actions: <Widget>[
+          TextButton(
+            child: const Text('NO'),
+            onPressed: () => Navigator.of(context).pop(false),
+          ),
+          TextButton(
+            child: const Text('YES'),
+            onPressed: () => Navigator.of(context).pop(true),
+          ),
+        ],
+      );
+    },
+  );
+
+  if (shouldStop == true) {
+    await _workoutController.stopWorkout();
+    _showExportDialog();
+  }
+}
+
+Future<void> _showExportDialog() async {
+  final bool? shouldExport = await showDialog<bool>(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: const Text('Export Workout'),
+        content: const Text('Would you like to export your workout as a FIT file?'),
+        actions: <Widget>[
+          TextButton(
+            child: const Text('NO'),
+            onPressed: () => Navigator.of(context).pop(false),
+          ),
+          TextButton(
+            child: const Text('YES'),
+            onPressed: () => Navigator.of(context).pop(true),
+          ),
+        ],
+      );
+    },
+  );
+
+  if (shouldExport == true) {
+    await _exportFitFile();
+  }
+
+  // Reset workout position to beginning
+  if (_currentWorkoutContent != null) {
+    _workoutController.loadWorkout(_currentWorkoutContent!);
+  }
+}
+
+Future<void> _exportFitFile() async {
+  try {
+    final fitData = await _workoutController.getLatestFitFile();
+    if (fitData == null) {
+      throw Exception('No FIT file data available');
+    }
+
+    final directory = await getApplicationDocumentsDirectory();
+    final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
+    final fileName = 'workout_${timestamp}.fit';
+    final file = File('${directory.path}/$fileName');
+    
+    await file.writeAsBytes(fitData);
+
+    if (mounted) {
+      final bool? shouldShare = await showDialog<bool>(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('Workout Exported'),
+            content: Text('File saved to: ${file.path}\n\nWould you like to share it now?'),
+            actions: <Widget>[
+              TextButton(
+                child: const Text('NO'),
+                onPressed: () => Navigator.of(context).pop(false),
+              ),
+              TextButton(
+                child: const Text('YES'),
+                onPressed: () => Navigator.of(context).pop(true),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (shouldShare == true) {
+        try {
+          await Share.shareXFiles(
+            [XFile(file.path),]
+          );
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Failed to share file: $e'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      }
+    }
+
+    // Clear the stored FIT file after successful export
+    await _workoutController.clearLatestFitFile();
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to export workout: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+}
 
   void _updateScrollPosition() {
     if (!mounted || !_scrollController.hasClients) return;
@@ -195,7 +349,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
     bleData.isReadingOrWriting.removeListener(_rwListener);
     _workoutController.dispose();
     _scrollController.dispose();
-    _ftpController.dispose();
+    _ftpScrollController.dispose();
     workoutSoundGenerator.dispose();
     if (_workoutController.progressPosition >= 1.0) {
       WorkoutStorage.clearWorkoutState();
@@ -225,6 +379,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
         
         // Load the workout to generate the graph
         _workoutController.loadWorkout(content);
+        _currentWorkoutContent = content;
         
         // Wait for the graph to be rendered
         await Future.delayed(const Duration(milliseconds: 100));
@@ -285,6 +440,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
                   onWorkoutSelected: (content) {
                     Navigator.pop(context);
                     _workoutController.loadWorkout(content);
+                    _currentWorkoutContent = content;
                   },
                   onWorkoutDeleted: (name) async {
                     await WorkoutStorage.deleteWorkout(name);
@@ -365,60 +521,89 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
   }
 
   Widget _buildControls() {
-    return Container(
-      padding: EdgeInsets.symmetric(vertical: WorkoutPadding.small),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
+  return Container(
+    padding: EdgeInsets.symmetric(vertical: WorkoutPadding.small),
+    child: Stack(
+      alignment: Alignment.center,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (_workoutController.isPlaying)
               IconButton(
-                icon: Icon(_workoutController.isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled),
+                icon: const Icon(Icons.stop_circle),
                 iconSize: 48,
-                onPressed: () {
-                  if (!_workoutController.isPlaying) {
-                    workoutSoundGenerator.playButtonSound();
-                  }
-                  _workoutController.togglePlayPause();
-                },
+                onPressed: () => _showStopWorkoutDialog(),
               ),
-              if (_workoutController.isPlaying)
-                IconButton(
-                  icon: const Icon(Icons.skip_next),
-                  iconSize: 48,
-                  onPressed: _workoutController.skipToNextSegment,
-                ),
-            ],
-          ),
-          Positioned(
-            right: WorkoutPadding.standard,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('FTP: '),
-                SizedBox(
-                  width: WorkoutSizes.ftpFieldWidth,
-                  child: TextField(
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      suffix: const Text('W'),
-                      contentPadding: EdgeInsets.symmetric(horizontal: WorkoutPadding.small),
-                      enabled: !_workoutController.isPlaying,
-                      hintText: _workoutController.isPlaying ? 'Pause to edit' : null,
-                    ),
-                    enabled: !_workoutController.isPlaying,
-                    controller: _ftpController,
-                    onSubmitted: (value) => _workoutController.updateFTP(double.tryParse(value)),
+            IconButton(
+              icon: Icon(_workoutController.isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled),
+              iconSize: 48,
+              onPressed: () {
+                if (!_workoutController.isPlaying) {
+                  workoutSoundGenerator.playButtonSound();
+                }
+                _workoutController.togglePlayPause();
+              },
+            ),
+            if (_workoutController.isPlaying)
+              IconButton(
+                icon: const Icon(Icons.skip_next),
+                iconSize: 48,
+                onPressed: _workoutController.skipToNextSegment,
+              ),
+          ],
+        ),
+        Positioned(
+          right: WorkoutPadding.standard,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('FTP: '),
+              SizedBox(
+                width: 80,
+                height: 220,
+                child: ListWheelScrollView.useDelegate(
+                  controller: _ftpScrollController,
+                  useMagnifier: true,
+                  magnification: 1.3,
+                  clipBehavior: Clip.none,
+                  overAndUnderCenterOpacity: .2,
+                  itemExtent: 40,
+                  perspective: 0.01,
+                  diameterRatio: 2,
+                  physics: const FixedExtentScrollPhysics(),
+                  onSelectedItemChanged: (index) {
+                    setState(() {
+                      _selectedFTP = minFTP + (index * ftpStep);
+                      _workoutController.updateFTP(_selectedFTP.toDouble());
+                    });
+                  },
+                  childDelegate: ListWheelChildBuilderDelegate(
+                    childCount: ((maxFTP - minFTP) ~/ ftpStep) + 1,
+                    builder: (context, index) {
+                      final value = minFTP + (index * ftpStep);
+                      return Container(
+                        alignment: Alignment.center,
+                        child: Text(
+                          value.toString(),
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: value == _selectedFTP ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
-              ],
-            ),
+              ),
+              const Text('W'),
+            ],
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {

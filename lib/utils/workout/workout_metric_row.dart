@@ -50,18 +50,13 @@ class WorkoutMetricRow extends StatelessWidget {
   }
 
   double _calculateMetricWidth(String value) {
-    double width = value.length * 20.0;
-    return width.clamp(MetricBox.minWidth, MetricBox.maxWidth);
+    double width = value.length * WorkoutSizes.metricCharacterWidth;
+    return width.clamp(WorkoutSizes.metricBoxMinWidth, WorkoutSizes.metricBoxMaxWidth);
   }
 }
 
 class MetricBox extends StatelessWidget {
   final WorkoutMetric metric;
-  static const double minWidth = 100.0;
-  static const double maxWidth = 160.0;
-  static const double height = 80.0;
-  static const double baseFontSize = 28.0;
-  static const double minFontSize = 16.0;
 
   const MetricBox({
     Key? key,
@@ -70,18 +65,18 @@ class MetricBox extends StatelessWidget {
 
   double _calculateFontSize(String text, double boxWidth) {
     // Start with base font size
-    double fontSize = baseFontSize;
+    double fontSize = WorkoutFontSizes.metricValueBase;
     
     // Estimate text width (rough approximation)
     double estimatedWidth = text.length * (fontSize * 0.6);
     
     // If text might overflow, scale down the font size
-    if (estimatedWidth > boxWidth - 20) { // 20 is padding
+    if (estimatedWidth > boxWidth - WorkoutPadding.metricBoxContent) {
       fontSize = min(
-        baseFontSize,
+        WorkoutFontSizes.metricValueBase,
         max(
-          minFontSize,
-          (boxWidth - 20) / (text.length * 0.6)
+          WorkoutFontSizes.metricValueMin,
+          (boxWidth - WorkoutPadding.metricBoxContent) / (text.length * 0.6)
         )
       );
     }
@@ -90,9 +85,8 @@ class MetricBox extends StatelessWidget {
   }
 
   double _calculateBoxWidth(String value) {
-    // Calculate dynamic width based on content length
-    double width = value.length * 20.0; // Base calculation
-    return width.clamp(minWidth, maxWidth);
+    double width = value.length * WorkoutSizes.metricCharacterWidth;
+    return width.clamp(WorkoutSizes.metricBoxMinWidth, WorkoutSizes.metricBoxMaxWidth);
   }
 
   @override
@@ -102,17 +96,11 @@ class MetricBox extends StatelessWidget {
 
     return Container(
       width: boxWidth,
-      height: height,
+      height: WorkoutSizes.metricBoxHeight,
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(WorkoutSizes.metricBoxBorderRadius),
+        boxShadow: [WorkoutShadows.metricBox],
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -120,26 +108,26 @@ class MetricBox extends StatelessWidget {
           Text(
             metric.label,
             style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
+              fontSize: WorkoutFontSizes.metricLabel,
+              fontWeight: WorkoutFontWeights.metricLabel,
               color: Theme.of(context).textTheme.bodySmall?.color,
             ),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: WorkoutSpacing.metricLabelValue),
           Text(
             metric.value,
             style: TextStyle(
               fontSize: valueFontSize,
-              fontWeight: FontWeight.bold,
+              fontWeight: WorkoutFontWeights.metricValue,
               color: Theme.of(context).textTheme.bodyLarge?.color,
             ),
           ),
           if (metric.unit != null) ...[
-            const SizedBox(height: 2),
+            SizedBox(height: WorkoutSpacing.metricValueUnit),
             Text(
               metric.unit!,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: WorkoutFontSizes.metricUnit,
                 color: Theme.of(context).textTheme.bodySmall?.color,
               ),
             ),

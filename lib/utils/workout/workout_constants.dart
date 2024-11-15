@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 
+/// Base size constant that controls the overall scale of metric boxes
+class WorkoutMetricScale {
+  /// Base size that all metric box measurements are derived from
+  static const double baseSize = 60.0;  // Current height of metric box
+}
+
 /// Padding and spacing constants used throughout the workout UI
 class WorkoutPadding {
   /// Standard edge padding for cards and containers
@@ -8,8 +14,11 @@ class WorkoutPadding {
   /// Small padding for tight spaces
   static const double small = 6.0;
   
-  /// Horizontal padding for metric boxes
-  static const double metricHorizontal = 4.0;
+  /// Horizontal padding for metric boxes (5% of base size)
+  static const double metricHorizontal = WorkoutMetricScale.baseSize * 0.05;
+
+  /// Internal padding for metric box content (25% of base size)
+  static const double metricBoxContent = WorkoutMetricScale.baseSize * 0.25;
 }
 
 /// Vertical spacing constants
@@ -25,6 +34,12 @@ class WorkoutSpacing {
   
   /// Medium vertical spacing
   static const double medium = 20.0;
+
+  /// Spacing between metric label and value (5% of base size)
+  static const double metricLabelValue = WorkoutMetricScale.baseSize * 0.05;
+
+  /// Spacing between value and unit (2.5% of base size)
+  static const double metricValueUnit = WorkoutMetricScale.baseSize * 0.025;
 }
 
 /// Size constants for various UI elements
@@ -40,12 +55,58 @@ class WorkoutSizes {
 
   /// Radius of the actual power dot
   static const double actualPowerDotRadius = 2.0;
+
+  /// Minimum width for metric boxes (1.25x base size)
+  static const double metricBoxMinWidth = WorkoutMetricScale.baseSize * 1.25;
+
+  /// Maximum width for metric boxes (2x base size)
+  static const double metricBoxMaxWidth = WorkoutMetricScale.baseSize * 2.0;
+
+  /// Height for metric boxes (same as base size)
+  static const double metricBoxHeight = WorkoutMetricScale.baseSize;
+
+  /// Border radius for metric boxes (15% of base size)
+  static const double metricBoxBorderRadius = WorkoutMetricScale.baseSize * 0.15;
+
+  /// Character width multiplier for metric value sizing (25% of base size)
+  static const double metricCharacterWidth = WorkoutMetricScale.baseSize * 0.25;
 }
 
 /// Font size constants
 class WorkoutFontSizes {
   /// Font size for grid labels and small text
-  static const double small = 11.0;
+  static const double small = 12.0;
+
+  /// Base font size for metric values (35% of base size)
+  static const double metricValueBase = WorkoutMetricScale.baseSize * 0.35;
+
+  /// Minimum font size for metric values (20% of base size)
+  static const double metricValueMin = WorkoutMetricScale.baseSize * 0.20;
+
+  /// Font size for metric labels (17.5% of base size)
+  static const double metricLabel = WorkoutMetricScale.baseSize * 0.175;
+
+  /// Font size for metric units (15% of base size)
+  static const double metricUnit = WorkoutMetricScale.baseSize * 0.15;
+}
+
+/// Font weight constants
+class WorkoutFontWeights {
+  /// Font weight for metric labels
+  static const FontWeight metricLabel = FontWeight.w500;
+
+  /// Font weight for metric values
+  static const FontWeight metricValue = FontWeight.bold;
+}
+
+/// Shadow constants for various UI elements
+class WorkoutShadows {
+  /// Shadow for metric boxes
+  static final BoxShadow metricBox = BoxShadow(
+    color: Colors.black.withOpacity(0.1),
+    blurRadius: WorkoutMetricScale.baseSize * 0.05,  // 5% of base size
+    offset: Offset(0, WorkoutMetricScale.baseSize * 0.025),  // 2.5% of base size
+  );
 }
 
 /// Duration constants for animations and intervals
@@ -60,7 +121,7 @@ class WorkoutDurations {
 /// Grid constants for the workout graph
 class WorkoutGrid {
   /// Interval for power grid lines (in watts)
-  static const double powerLineInterval = 50.0;
+  static const double powerLineInterval = 100.0;
   
   /// Interval for time grid lines (in seconds)
   static const double timeLineInterval = 300.0; // 5 minutes
@@ -91,4 +152,28 @@ class WorkoutStroke {
 
   /// Width for actual power line
   static const double actualPowerLine = 1.5;
+}
+
+/// FTP percentage zones for power-based coloring
+class WorkoutZones {
+  /// Recovery zone (< 55% FTP)
+  static const double recovery = 0.55;
+  
+  /// Endurance zone (55-75% FTP)
+  static const double endurance = 0.75;
+  
+  /// Tempo zone (76-87% FTP)
+  static const double tempo = 0.87;
+  
+  /// Threshold zone (88-95% FTP)
+  static const double threshold = 0.95;
+  
+  /// VO2Max zone (96-105% FTP)
+  static const double vo2max = 1.05;
+  
+  /// Anaerobic zone (106-120% FTP)
+  static const double anaerobic = 1.20;
+  
+  /// Neuromuscular zone (> 120% FTP)
+  static const double neuromuscular = 1.50;
 }

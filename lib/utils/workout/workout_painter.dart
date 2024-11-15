@@ -144,6 +144,9 @@ class WorkoutPainter extends CustomPainter {
   }
 
   void _drawPowerGrid(Canvas canvas, Size size, double heightScale) {
+    // Add left padding for power labels
+    const double leftPadding = 35.0;  // Space for power labels
+    
     final gridPaint = Paint()
       ..style = PaintingStyle.stroke
       ..color = Colors.grey.withOpacity(WorkoutOpacity.gridLines)
@@ -158,13 +161,14 @@ class WorkoutPainter extends CustomPainter {
     for (var power = 0.0; power <= maxPower * ftpValue; power += WorkoutGrid.powerLineInterval) {
       final y = size.height - (power * heightScale);
       
+      // Draw grid line starting after the label space
       canvas.drawLine(
-        Offset(0, y),
+        Offset(leftPadding, y),
         Offset(size.width, y),
         gridPaint,
       );
 
-      // Draw power labels
+      // Draw power labels in the reserved space
       textPainter.text = TextSpan(
         text: '${power.round()}w',
         style: TextStyle(
@@ -173,7 +177,7 @@ class WorkoutPainter extends CustomPainter {
         ),
       );
       textPainter.layout();
-      textPainter.paint(canvas, Offset(-textPainter.width + 10, y - textPainter.height / 2));
+      textPainter.paint(canvas, Offset(leftPadding - textPainter.width - 4, y - textPainter.height / 2));
     }
   }
 
@@ -252,25 +256,36 @@ class WorkoutPainter extends CustomPainter {
   }
 
   Color _getSegmentColor(WorkoutSegment segment) {
-    switch (segment.type) {
-      case SegmentType.warmup:
-        return Colors.green.withOpacity(WorkoutOpacity.segmentColor);
-      case SegmentType.cooldown:
-        return Colors.blue.withOpacity(WorkoutOpacity.segmentColor);
-      case SegmentType.intervalT:
-        return segment.powerLow == segment.onPower 
-            ? Colors.orange.withOpacity(WorkoutOpacity.segmentColor)  // Work interval
-            : Colors.blue.withOpacity(WorkoutOpacity.segmentColor);   // Rest interval
-      case SegmentType.steadyState:
-        return Colors.yellow.withOpacity(WorkoutOpacity.segmentColor);
-      case SegmentType.ramp:
-        return Colors.purple.withOpacity(WorkoutOpacity.segmentColor);
-      case SegmentType.freeRide:
-        return Colors.grey.withOpacity(WorkoutOpacity.segmentColor);
-      case SegmentType.maxEffort:
-        return Colors.red.withOpacity(WorkoutOpacity.segmentColor);
-      default:
-        return Colors.grey.withOpacity(WorkoutOpacity.segmentColor);
+    // Always use consistent colors for warmup and cooldown
+    if (segment.type == SegmentType.warmup) {
+      return Colors.green.withOpacity(WorkoutOpacity.segmentColor);
+    }
+    if (segment.type == SegmentType.cooldown) {
+      return Colors.blue.withOpacity(WorkoutOpacity.segmentColor);
+    }
+
+    // For other segments, determine color based on power as % of FTP
+    double powerPercentage = segment.powerLow;
+    if (segment.isRamp) {
+      // For ramps, use the average power
+      powerPercentage = (segment.powerLow + segment.powerHigh) / 2;
+    }
+
+    // Color based on power zones
+    if (powerPercentage <= WorkoutZones.recovery) {
+      return Colors.blue.withOpacity(WorkoutOpacity.segmentColor);
+    } else if (powerPercentage <= WorkoutZones.endurance) {
+      return Colors.green.withOpacity(WorkoutOpacity.segmentColor);
+    } else if (powerPercentage <= WorkoutZones.tempo) {
+      return Colors.yellow.withOpacity(WorkoutOpacity.segmentColor);
+    } else if (powerPercentage <= WorkoutZones.threshold) {
+      return Colors.orange.withOpacity(WorkoutOpacity.segmentColor);
+    } else if (powerPercentage <= WorkoutZones.vo2max) {
+      return Colors.deepOrange.withOpacity(WorkoutOpacity.segmentColor);
+    } else if (powerPercentage <= WorkoutZones.anaerobic) {
+      return Colors.red.withOpacity(WorkoutOpacity.segmentColor);
+    } else {
+      return Colors.purple.withOpacity(WorkoutOpacity.segmentColor);
     }
   }
 
