@@ -1,4 +1,8 @@
+import 'dart:convert';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/rendering.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -7,9 +11,11 @@ import '../utils/workout/workout_painter.dart';
 import '../utils/workout/workout_metrics.dart';
 import '../utils/workout/workout_constants.dart';
 import '../utils/workout/workout_controller.dart';
+import '../utils/workout/workout_storage.dart';
 import '../utils/workout/sounds.dart';
 import '../utils/bledata.dart';
 import '../widgets/device_header.dart';
+import '../widgets/workout_library.dart';
 import 'dart:async';
 
 class WorkoutScreen extends StatefulWidget {
@@ -20,7 +26,6 @@ class WorkoutScreen extends StatefulWidget {
   State<WorkoutScreen> createState() => _WorkoutScreenState();
 }
 
-// Changed to TickerProviderStateMixin for multiple animation controllers
 class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateMixin {
   String? _workoutName;
   late AnimationController _fadeController;
@@ -32,8 +37,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
   final ScrollController _scrollController = ScrollController();
   double _lastScrollPosition = 0;
   late TextEditingController _ftpController;
+  final GlobalKey _workoutGraphKey = GlobalKey();
   
-  // Animation for workout width
   late AnimationController _zoomController;
   late Animation<double> _zoomAnimation;
   static const double previewMinutes = 40;
@@ -47,14 +52,12 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
     _workoutController = WorkoutController(bleData);
     _ftpController = TextEditingController(text: _workoutController.ftpValue.round().toString());
     
-    // Initialize fade animation
     _fadeController = AnimationController(
       duration: WorkoutDurations.fadeAnimation,
       vsync: this,
     );
     _fadeAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(_fadeController);
 
-    // Initialize zoom animation
     _zoomController = AnimationController(
       duration: const Duration(milliseconds: 500),
       vsync: this,
@@ -68,8 +71,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
     ));
     
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadSampleWorkout();
       rwSubscription();
+      _loadDefaultWorkout();
     });
 
     _workoutController.addListener(() {
@@ -83,7 +86,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
       }
       setState(() {
         _workoutName = _workoutController.workoutName;
-        // Update FTP controller when FTP changes and not playing
         if (!_workoutController.isPlaying && 
             _ftpController.text != _workoutController.ftpValue.round().toString()) {
           _ftpController.text = _workoutController.ftpValue.round().toString();
@@ -91,7 +93,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
       });
     });
 
-    // Periodic connection check
     Timer.periodic(const Duration(seconds: 15), (refreshTimer) {
       if (!widget.device.isConnected) {
         try {
@@ -107,6 +108,38 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
     });
   }
 
+  Future<void> _loadDefaultWorkout() async {
+    try {
+      final content = await rootBundle.loadString('assets/test_workout.zwo');
+      _workoutController.loadWorkout(content);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading default workout: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<String?> _captureWorkoutThumbnail() async {
+    try {
+      final boundary = _workoutGraphKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null) return null;
+
+      final image = await boundary.toImage(pixelRatio: 1.0);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) return null;
+
+      return base64Encode(byteData.buffer.asUint8List());
+    } catch (e) {
+      print('Error capturing thumbnail: $e');
+      return null;
+    }
+  }
+
   void _updateScrollPosition() {
     if (!mounted || !_scrollController.hasClients) return;
 
@@ -114,13 +147,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
       if (_workoutController.isPlaying && _scrollController.hasClients) {
         final viewportWidth = _scrollController.position.viewportDimension;
         final totalWidth = _scrollController.position.maxScrollExtent + viewportWidth;
-        // Calculate progress width using the same scale as the CustomPaint
         final progressWidth = _workoutController.progressPosition * (totalWidth - (2 * WorkoutPadding.standard));
         
-        // Calculate the target scroll position to keep the indicator centered
         final targetScroll = progressWidth - (viewportWidth / 2);
         
-        // Only scroll if we've moved enough to warrant it
         if ((targetScroll - _lastScrollPosition).abs() > 1.0) {
           _scrollController.animateTo(
             targetScroll.clamp(0.0, _scrollController.position.maxScrollExtent),
@@ -167,6 +197,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
     _scrollController.dispose();
     _ftpController.dispose();
     workoutSoundGenerator.dispose();
+    if (_workoutController.progressPosition >= 1.0) {
+      WorkoutStorage.clearWorkoutState();
+    }
     super.dispose();
   }
 
@@ -190,7 +223,33 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
           throw Exception('Invalid workout file format. Expected .zwo file content.');
         }
         
+        // Load the workout to generate the graph
         _workoutController.loadWorkout(content);
+        
+        // Wait for the graph to be rendered
+        await Future.delayed(const Duration(milliseconds: 100));
+        
+        // Capture thumbnail
+        final thumbnail = await _captureWorkoutThumbnail();
+        if (thumbnail == null) {
+          throw Exception('Failed to generate workout thumbnail');
+        }
+        
+        // Save to library
+        await WorkoutStorage.saveWorkoutToLibrary(
+          workoutContent: content,
+          workoutName: _workoutController.workoutName ?? 'Unnamed Workout',
+          thumbnailData: thumbnail,
+        );
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Workout imported successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -205,24 +264,45 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
     }
   }
 
-  void _loadSampleWorkout() {
-    const sampleWorkout = '''
-<workout_file>
-    <name>Sample Workout</name>
-    <workout>
-        <Warmup Duration="600" PowerLow="0.4" PowerHigh="0.75" Cadence="85" />
-        <SteadyState Duration="300" Power="0.75" Cadence="90" />
-        <IntervalsT Repeat="4" 
-                   OnDuration="60" OffDuration="60"
-                   OnPower="1.0" OffPower="0.5"
-                   CadenceLow="95" CadenceHigh="105" />
-        <Ramp Duration="300" PowerLow="0.6" PowerHigh="0.9" />
-        <Cooldown Duration="300" PowerLow="0.75" PowerHigh="0.4" />
-    </workout>
-</workout_file>
-''';
-
-    _workoutController.loadWorkout(sampleWorkout);
+  void _showWorkoutLibrary({required bool selectionMode}) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.8,
+          height: MediaQuery.of(context).size.height * 0.8,
+          padding: EdgeInsets.all(WorkoutPadding.standard),
+          child: Column(
+            children: [
+              Text(
+                selectionMode ? 'Select Workout' : 'Delete Workout',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              SizedBox(height: WorkoutSpacing.medium),
+              Expanded(
+                child: WorkoutLibrary(
+                  selectionMode: selectionMode,
+                  onWorkoutSelected: (content) {
+                    Navigator.pop(context);
+                    _workoutController.loadWorkout(content);
+                  },
+                  onWorkoutDeleted: (name) async {
+                    await WorkoutStorage.deleteWorkout(name);
+                    if (mounted) {
+                      setState(() {});
+                    }
+                  },
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('CLOSE'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildWorkoutSummary() {
@@ -290,7 +370,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Centered play controls
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -312,7 +391,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
                 ),
             ],
           ),
-          // FTP Input positioned on the right
           Positioned(
             right: WorkoutPadding.standard,
             child: Row(
@@ -348,10 +426,52 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
       appBar: AppBar(
         title: Text(_workoutName ?? ''),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.folder_open),
-            onPressed: _pickAndLoadWorkout,
-            tooltip: 'Open .zwo file',
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              switch (value) {
+                case 'import':
+                  _pickAndLoadWorkout();
+                  break;
+                case 'select':
+                  _showWorkoutLibrary(selectionMode: true);
+                  break;
+                case 'delete':
+                  _showWorkoutLibrary(selectionMode: false);
+                  break;
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'import',
+                child: Row(
+                  children: [
+                    Icon(Icons.file_upload),
+                    SizedBox(width: 8),
+                    Text('Import ZWO'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'select',
+                child: Row(
+                  children: [
+                    Icon(Icons.folder_open),
+                    SizedBox(width: 8),
+                    Text('Select Workout'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete),
+                    SizedBox(width: 8),
+                    Text('Delete Workout'),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -382,44 +502,46 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
                           return SingleChildScrollView(
                             controller: _scrollController,
                             scrollDirection: Axis.horizontal,
-                            child: SizedBox(
-                              width: totalWidth,
-                              child: Stack(
-                                children: [
-                                  Padding(
-                                    padding: EdgeInsets.all(WorkoutPadding.standard),
-                                    child: Column(
-                                      children: [
-                                        Expanded(
-                                          child: CustomPaint(
-                                            painter: WorkoutPainter(
-                                              segments: _workoutController.segments,
-                                              maxPower: _workoutController.maxPower,
-                                              totalDuration: _workoutController.totalDuration,
-                                              ftpValue: _workoutController.ftpValue,
-                                              currentProgress: _workoutController.progressPosition,
-                                              actualPowerPoints: _workoutController.actualPowerPoints,
-                                              currentPower: _workoutController.isPlaying ? bleData.ftmsData.watts.toDouble() : null,
+                            child: RepaintBoundary(
+                              key: _workoutGraphKey,
+                              child: SizedBox(
+                                width: totalWidth,
+                                child: Stack(
+                                  children: [
+                                    Padding(
+                                      padding: EdgeInsets.all(WorkoutPadding.standard),
+                                      child: Column(
+                                        children: [
+                                          Expanded(
+                                            child: CustomPaint(
+                                              painter: WorkoutPainter(
+                                                segments: _workoutController.segments,
+                                                maxPower: _workoutController.maxPower,
+                                                totalDuration: _workoutController.totalDuration,
+                                                ftpValue: _workoutController.ftpValue,
+                                                currentProgress: _workoutController.progressPosition,
+                                                actualPowerPoints: _workoutController.actualPowerPoints,
+                                                currentPower: _workoutController.isPlaying ? bleData.ftmsData.watts.toDouble() : null,
+                                              ),
+                                              child: Container(),
                                             ),
-                                            child: Container(),
                                           ),
-                                        ),
-                                        SizedBox(height: WorkoutSpacing.medium),
-                                      ],
-                                    ),
-                                  ),
-                                  if (_workoutController.isPlaying)
-                                    Positioned(
-                                      // Calculate position using the same scale as the CustomPaint
-                                      left: _workoutController.progressPosition * (totalWidth - (2 * WorkoutPadding.standard)) + WorkoutPadding.standard,
-                                      top: WorkoutPadding.standard,
-                                      bottom: WorkoutSpacing.medium + WorkoutPadding.standard,
-                                      child: Container(
-                                        width: WorkoutSizes.progressIndicatorWidth,
-                                        color: const Color.fromARGB(255, 0, 0, 0).withOpacity(WorkoutOpacity.segmentBorder),
+                                          SizedBox(height: WorkoutSpacing.medium),
+                                        ],
                                       ),
                                     ),
-                                ],
+                                    if (_workoutController.isPlaying)
+                                      Positioned(
+                                        left: _workoutController.progressPosition * (totalWidth - (2 * WorkoutPadding.standard)) + WorkoutPadding.standard,
+                                        top: WorkoutPadding.standard,
+                                        bottom: WorkoutSpacing.medium + WorkoutPadding.standard,
+                                        child: Container(
+                                          width: WorkoutSizes.progressIndicatorWidth,
+                                          color: const Color.fromARGB(255, 0, 0, 0).withOpacity(WorkoutOpacity.segmentBorder),
+                                        ),
+                                      ),
+                                  ],
+                                ),
                               ),
                             ),
                           );
