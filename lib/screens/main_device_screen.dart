@@ -13,7 +13,7 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import '../screens/settings_screen.dart';
 import '../screens/shifter_screen.dart';
 import '../screens/firmware_update_screen.dart';
-//import '../screens/workout_screen.dart';
+import '../screens/workout_screen.dart';
 
 import '../utils/extra.dart';
 
@@ -139,10 +139,10 @@ class _MainDeviceScreenState extends State<MainDeviceScreen> {
             Navigator.of(context)
                 .push(MaterialPageRoute(builder: (context) => PowerTableScreen(device: this.widget.device)));
           }),
-          /*          _buildCard('assets/GitHub-logo.png', "Workout", () {
+          _buildCard('assets/workout_screen.png', "Workout", () {
             Navigator.of(context)
                 .push(MaterialPageRoute(builder: (context) => WorkoutScreen(device: this.widget.device)));
-          }),*/
+          }),
           _buildCard('assets/GitHub-logo.png', "Update Firmware", () {
             Navigator.of(context)
                 .push(MaterialPageRoute(builder: (context) => FirmwareUpdateScreen(device: this.widget.device)));
