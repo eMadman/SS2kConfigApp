@@ -36,7 +36,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
   StreamSubscription<BluetoothConnectionState>? _connectionStateSubscription;
   final ScrollController _scrollController = ScrollController();
   double _lastScrollPosition = 0;
-  late TextEditingController _ftpController;
   final GlobalKey _workoutGraphKey = GlobalKey();
   
   late AnimationController _zoomController;
@@ -44,13 +43,25 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
   static const double previewMinutes = 40;
   static const double playingMinutes = 15;
 
+  // FTP wheel scroll controller
+  late final FixedExtentScrollController _ftpScrollController;
+  static const int minFTP = 50;
+  static const int maxFTP = 500;
+  static const int ftpStep = 1;
+  late int _selectedFTP;
+
   @override
   void initState() {
     super.initState();
     WakelockPlus.enable();
     bleData = BLEDataManager.forDevice(widget.device);
     _workoutController = WorkoutController(bleData);
-    _ftpController = TextEditingController(text: _workoutController.ftpValue.round().toString());
+    _selectedFTP = _workoutController.ftpValue.round();
+    
+    // Initialize FTP scroll controller with current value
+    _ftpScrollController = FixedExtentScrollController(
+      initialItem: (_selectedFTP - minFTP) ~/ ftpStep,
+    );
     
     _fadeController = AnimationController(
       duration: WorkoutDurations.fadeAnimation,
@@ -86,9 +97,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
       }
       setState(() {
         _workoutName = _workoutController.workoutName;
-        if (!_workoutController.isPlaying && 
-            _ftpController.text != _workoutController.ftpValue.round().toString()) {
-          _ftpController.text = _workoutController.ftpValue.round().toString();
+        if (_selectedFTP != _workoutController.ftpValue.round()) {
+          _selectedFTP = _workoutController.ftpValue.round();
+          _ftpScrollController.jumpToItem((_selectedFTP - minFTP) ~/ ftpStep);
         }
       });
     });
@@ -195,7 +206,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
     bleData.isReadingOrWriting.removeListener(_rwListener);
     _workoutController.dispose();
     _scrollController.dispose();
-    _ftpController.dispose();
+    _ftpScrollController.dispose();
     workoutSoundGenerator.dispose();
     if (_workoutController.progressPosition >= 1.0) {
       WorkoutStorage.clearWorkoutState();
@@ -398,20 +409,43 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
               children: [
                 const Text('FTP: '),
                 SizedBox(
-                  width: WorkoutSizes.ftpFieldWidth,
-                  child: TextField(
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      suffix: const Text('W'),
-                      contentPadding: EdgeInsets.symmetric(horizontal: WorkoutPadding.small),
-                      enabled: !_workoutController.isPlaying,
-                      hintText: _workoutController.isPlaying ? 'Pause to edit' : null,
+                  width: 80,
+                  height: 220,
+                  child: ListWheelScrollView.useDelegate(
+                    controller: _ftpScrollController,
+                    useMagnifier: true,
+                    magnification: 1.3,
+                    clipBehavior: Clip.none,
+                    overAndUnderCenterOpacity: .2,
+                    itemExtent: 40,
+                    perspective: 0.01, //.005
+                    diameterRatio: 2, //1.2
+                    physics: const FixedExtentScrollPhysics(),
+                    onSelectedItemChanged: (index) {
+                      setState(() {
+                        _selectedFTP = minFTP + (index * ftpStep);
+                        _workoutController.updateFTP(_selectedFTP.toDouble());
+                      });
+                    },
+                    childDelegate: ListWheelChildBuilderDelegate(
+                      childCount: ((maxFTP - minFTP) ~/ ftpStep) + 1,
+                      builder: (context, index) {
+                        final value = minFTP + (index * ftpStep);
+                        return Container(
+                          alignment: Alignment.center,
+                          child: Text(
+                            value.toString(),
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: value == _selectedFTP ? FontWeight.bold : FontWeight.normal,
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                    enabled: !_workoutController.isPlaying,
-                    controller: _ftpController,
-                    onSubmitted: (value) => _workoutController.updateFTP(double.tryParse(value)),
                   ),
                 ),
+                const Text('W'),
               ],
             ),
           ),
