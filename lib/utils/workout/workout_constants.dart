@@ -45,7 +45,7 @@ class WorkoutSizes {
 /// Font size constants
 class WorkoutFontSizes {
   /// Font size for grid labels and small text
-  static const double small = 11.0;
+  static const double small = 12.0;
 }
 
 /// Duration constants for animations and intervals
@@ -60,7 +60,7 @@ class WorkoutDurations {
 /// Grid constants for the workout graph
 class WorkoutGrid {
   /// Interval for power grid lines (in watts)
-  static const double powerLineInterval = 50.0;
+  static const double powerLineInterval = 100.0;
   
   /// Interval for time grid lines (in seconds)
   static const double timeLineInterval = 300.0; // 5 minutes
@@ -91,4 +91,28 @@ class WorkoutStroke {
 
   /// Width for actual power line
   static const double actualPowerLine = 1.5;
+}
+
+/// FTP percentage zones for power-based coloring
+class WorkoutZones {
+  /// Recovery zone (< 55% FTP)
+  static const double recovery = 0.55;
+  
+  /// Endurance zone (55-75% FTP)
+  static const double endurance = 0.75;
+  
+  /// Tempo zone (76-87% FTP)
+  static const double tempo = 0.87;
+  
+  /// Threshold zone (88-95% FTP)
+  static const double threshold = 0.95;
+  
+  /// VO2Max zone (96-105% FTP)
+  static const double vo2max = 1.05;
+  
+  /// Anaerobic zone (106-120% FTP)
+  static const double anaerobic = 1.20;
+  
+  /// Neuromuscular zone (> 120% FTP)
+  static const double neuromuscular = 1.50;
 }

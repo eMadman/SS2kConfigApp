@@ -121,8 +121,17 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
 
   Future<void> _loadDefaultWorkout() async {
     try {
-      final content = await rootBundle.loadString('assets/test_workout.zwo');
+      final content = await rootBundle.loadString('assets/Anthonys_Mix.zwo');
       _workoutController.loadWorkout(content);
+      
+      // Wait for the graph to be rendered
+      await Future.delayed(const Duration(milliseconds: 100));
+      
+      // Generate and save thumbnail for default workout
+      final thumbnail = await _captureWorkoutThumbnail();
+      if (thumbnail != null) {
+        await WorkoutStorage.updateWorkoutThumbnail(WorkoutStorage.defaultWorkoutName, thumbnail);
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

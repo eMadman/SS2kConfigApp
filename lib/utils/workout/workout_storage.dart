@@ -1,5 +1,10 @@
 import 'dart:convert';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'workout_parser.dart';
+import 'workout_painter.dart';
+import 'dart:ui' as ui;
+import 'package:flutter/rendering.dart';
 
 class WorkoutStorage {
   static const String _ftpKey = 'workout_ftp_value';
@@ -9,6 +14,7 @@ class WorkoutStorage {
   static const String _isPlayingKey = 'workout_is_playing';
   static const String _savedWorkoutsKey = 'saved_workouts';
   static const String _workoutThumbnailPrefix = 'workout_thumbnail_';
+  static const String defaultWorkoutName = "Anthony's Mix";
 
   // Save FTP value
   static Future<void> saveFTP(double value) async {
@@ -121,10 +127,37 @@ class WorkoutStorage {
     final prefs = await SharedPreferences.getInstance();
     final workoutsJson = prefs.getString(_savedWorkoutsKey);
     
-    if (workoutsJson == null) return [];
+    List<Map<String, dynamic>> workouts = [];
+    if (workoutsJson != null) {
+      final List<dynamic> decoded = jsonDecode(workoutsJson);
+      workouts = decoded.cast<Map<String, dynamic>>();
+    }
+
+    // Check if default workout exists in the list
+    bool hasDefaultWorkout = workouts.any((workout) => workout['name'] == defaultWorkoutName);
+
+    if (!hasDefaultWorkout) {
+      // Load default workout content from assets
+      final defaultWorkoutContent = await rootBundle.loadString('assets/Anthonys_Mix.zwo');
+      
+      // Generate a basic thumbnail string (a placeholder until the actual thumbnail is generated)
+      final placeholderThumbnail = base64Encode(utf8.encode('placeholder'));
+      
+      // Add default workout to the beginning of the list
+      workouts.insert(0, {
+        'name': defaultWorkoutName,
+        'content': defaultWorkoutContent,
+        'timestamp': 0, // Use 0 to ensure it stays at the top
+      });
+
+      // Save the updated list back to preferences
+      await prefs.setString(_savedWorkoutsKey, jsonEncode(workouts));
+      
+      // Save the placeholder thumbnail
+      await prefs.setString('$_workoutThumbnailPrefix$defaultWorkoutName', placeholderThumbnail);
+    }
     
-    final List<dynamic> decoded = jsonDecode(workoutsJson);
-    return decoded.cast<Map<String, dynamic>>();
+    return workouts;
   }
 
   // Get thumbnail for a workout
@@ -135,6 +168,9 @@ class WorkoutStorage {
 
   // Delete a workout from the library
   static Future<void> deleteWorkout(String workoutName) async {
+    // Prevent deletion of default workout
+    if (workoutName == defaultWorkoutName) return;
+
     final prefs = await SharedPreferences.getInstance();
     
     // Get existing workouts
@@ -148,5 +184,11 @@ class WorkoutStorage {
     
     // Remove thumbnail
     await prefs.remove('$_workoutThumbnailPrefix$workoutName');
+  }
+
+  // Update thumbnail for a workout
+  static Future<void> updateWorkoutThumbnail(String workoutName, String thumbnailData) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('$_workoutThumbnailPrefix$workoutName', thumbnailData);
   }
 }
