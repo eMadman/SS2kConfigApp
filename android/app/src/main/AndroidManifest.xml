@@ -13,7 +13,6 @@
      <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
      <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30"/>
  
- 
      <!-- legacy for Android 9 or lower -->
      <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" android:maxSdkVersion="28" />
      <uses-permission android:name="android.permission.INTERNET"/>
@@ -47,5 +46,16 @@
          <meta-data
              android:name="flutterEmbedding"
              android:value="2" />
+
+         <!-- Add this provider for share_plus -->
+         <provider
+            android:name="dev.fluttercommunity.plus.share.ShareFileProvider"
+            android:authorities="${applicationId}.flutter.share_provider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/flutter_share_file_paths" />
+         </provider>
      </application>
 </manifest>

@@ -6,6 +6,7 @@ import 'workout_parser.dart';
 import 'workout_constants.dart';
 import 'workout_storage.dart';
 import 'sounds.dart';
+import 'fit_file_generator.dart';
 
 class WorkoutController extends ChangeNotifier {
   List<WorkoutSegment> segments = [];
@@ -22,6 +23,7 @@ class WorkoutController extends ChangeNotifier {
   final BLEData bleData;
   bool _isCountingDown = false;
   String? _currentWorkoutContent;
+  FitFileGenerator? _fitGenerator;
 
   WorkoutController(this.bleData) {
     // Reset simulation parameters on initialization
@@ -48,6 +50,7 @@ class WorkoutController extends ChangeNotifier {
       // Resume if it was playing
       if (savedState['wasPlaying'] as bool) {
         isPlaying = true;
+        _fitGenerator = FitFileGenerator();
         startProgress();
       }
     }
@@ -73,6 +76,7 @@ class WorkoutController extends ChangeNotifier {
   void togglePlayPause() {
     isPlaying = !isPlaying;
     if (isPlaying) {
+      _fitGenerator = FitFileGenerator();
       startProgress();
       actualPowerPoints = {}; // Reset power points when starting
       elapsedSeconds = 0;
@@ -83,6 +87,23 @@ class WorkoutController extends ChangeNotifier {
     }
     _saveWorkoutState();
     notifyListeners();
+  }
+
+  Future<void> stopWorkout() async {
+    isPlaying = false;
+    progressTimer?.cancel();
+    await _fitGenerator?.finalize();
+    _resetSimulationParameters();
+    _saveWorkoutState();
+    notifyListeners();
+  }
+
+  Future<List<int>?> getLatestFitFile() async {
+    return FitFileGenerator.getLatestFitFile();
+  }
+
+  Future<void> clearLatestFitFile() async {
+    await FitFileGenerator.clearLatestFitFile();
   }
 
   void skipToNextSegment() {
@@ -101,6 +122,8 @@ class WorkoutController extends ChangeNotifier {
           // Play workout end sound and reset simulation parameters
           workoutSoundGenerator.workoutEndSound();
           _resetSimulationParameters();
+          // Finalize FIT file
+          _fitGenerator?.finalize();
           _saveWorkoutState();
           notifyListeners();
           return;
@@ -162,8 +185,18 @@ class WorkoutController extends ChangeNotifier {
       elapsedSeconds = (progressPosition * totalDuration).round();
       
       // Store power value at current time index
-      actualPowerPoints[elapsedSeconds] = bleData.ftmsData.watts.toDouble();
+      final currentPower = bleData.ftmsData.watts.toDouble();
+      actualPowerPoints[elapsedSeconds] = currentPower;
       
+      // Add record to FIT file
+      _fitGenerator?.addRecord(
+        heartRate: bleData.ftmsData.heartRate,
+        cadence: bleData.ftmsData.cadence,
+        power: bleData.ftmsData.watts,
+        distance: 0, // Add actual distance if available
+        elapsedTime: elapsedSeconds,
+      );
+
       if (progressPosition >= 1.0) {
         progressPosition = 0;
         isPlaying = false;
@@ -171,6 +204,8 @@ class WorkoutController extends ChangeNotifier {
         // Play workout end sound and reset simulation parameters
         workoutSoundGenerator.workoutEndSound();
         _resetSimulationParameters();
+        // Finalize FIT file
+        _fitGenerator?.finalize();
         _saveWorkoutState();
         notifyListeners();
         return;
