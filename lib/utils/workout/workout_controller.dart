@@ -24,6 +24,7 @@ class WorkoutController extends ChangeNotifier {
   bool _isCountingDown = false;
   String? _currentWorkoutContent;
   FitFileGenerator? _fitGenerator;
+  int _lastFitRecordTime = 0;
 
   WorkoutController(this.bleData) {
     // Reset simulation parameters on initialization
@@ -77,6 +78,7 @@ class WorkoutController extends ChangeNotifier {
     isPlaying = !isPlaying;
     if (isPlaying) {
       _fitGenerator = FitFileGenerator();
+      _lastFitRecordTime = 0;
       startProgress();
       actualPowerPoints = {}; // Reset power points when starting
       elapsedSeconds = 0;
@@ -188,14 +190,17 @@ class WorkoutController extends ChangeNotifier {
       final currentPower = bleData.ftmsData.watts.toDouble();
       actualPowerPoints[elapsedSeconds] = currentPower;
       
-      // Add record to FIT file
-      _fitGenerator?.addRecord(
-        heartRate: bleData.ftmsData.heartRate,
-        cadence: bleData.ftmsData.cadence,
-        power: bleData.ftmsData.watts,
-        distance: 0, // Add actual distance if available
-        elapsedTime: elapsedSeconds,
-      );
+      // Add record to FIT file once per second
+      if (elapsedSeconds > _lastFitRecordTime) {
+        _lastFitRecordTime = elapsedSeconds;
+        _fitGenerator?.addRecord(
+          heartRate: bleData.ftmsData.heartRate,
+          cadence: bleData.ftmsData.cadence,
+          power: bleData.ftmsData.watts,
+          distance: 0, // Add actual distance if available
+          elapsedTime: elapsedSeconds,
+        );
+      }
 
       if (progressPosition >= 1.0) {
         progressPosition = 0;
