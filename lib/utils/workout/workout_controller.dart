@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import '../bledata.dart';
+import '../ftmsControlPoint.dart';
 import 'workout_parser.dart';
 import 'workout_constants.dart';
 
@@ -18,7 +19,27 @@ class WorkoutController extends ChangeNotifier {
   int currentSegmentTimeRemaining = 0;
   final BLEData bleData;
 
-  WorkoutController(this.bleData);
+  WorkoutController(this.bleData) {
+    // Reset simulation parameters on initialization
+    _resetSimulationParameters();
+  }
+
+  // Helper method to reset simulation parameters
+  Future<void> _resetSimulationParameters() async {
+    if (bleData.ftmsControlPointCharacteristic != null) {
+      try {
+        await FTMSControlPoint.writeIndoorBikeSimulation(
+          bleData.ftmsControlPointCharacteristic!,
+          windSpeed: 0,
+          grade: 0,
+          crr: 0,
+          cw: 0,
+        );
+      } catch (e) {
+        print('Error resetting simulation parameters: $e');
+      }
+    }
+  }
 
   void togglePlayPause() {
     isPlaying = !isPlaying;
@@ -28,6 +49,8 @@ class WorkoutController extends ChangeNotifier {
       elapsedSeconds = 0;
     } else {
       progressTimer?.cancel();
+      // Reset simulation parameters when stopping
+      _resetSimulationParameters();
     }
     notifyListeners();
   }
@@ -45,6 +68,8 @@ class WorkoutController extends ChangeNotifier {
           progressPosition = 1.0;
           isPlaying = false;
           progressTimer?.cancel();
+          // Reset simulation parameters when workout ends
+          _resetSimulationParameters();
           notifyListeners();
           return;
         }
@@ -85,6 +110,10 @@ class WorkoutController extends ChangeNotifier {
       progressPosition = 0;
       actualPowerPoints = {};
       elapsedSeconds = 0;
+      
+      // Reset simulation parameters when loading new workout
+      _resetSimulationParameters();
+      
       notifyListeners();
     } catch (e) {
       rethrow;
@@ -104,6 +133,8 @@ class WorkoutController extends ChangeNotifier {
         progressPosition = 0;
         isPlaying = false;
         timer.cancel();
+        // Reset simulation parameters when workout ends
+        _resetSimulationParameters();
         notifyListeners();
         return;
       }
