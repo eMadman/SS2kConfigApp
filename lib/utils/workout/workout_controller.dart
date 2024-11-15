@@ -4,6 +4,7 @@ import '../bledata.dart';
 import '../ftmsControlPoint.dart';
 import 'workout_parser.dart';
 import 'workout_constants.dart';
+import 'sounds.dart';
 
 class WorkoutController extends ChangeNotifier {
   List<WorkoutSegment> segments = [];
@@ -18,6 +19,7 @@ class WorkoutController extends ChangeNotifier {
   int elapsedSeconds = 0;
   int currentSegmentTimeRemaining = 0;
   final BLEData bleData;
+  bool _isCountingDown = false;
 
   WorkoutController(this.bleData) {
     // Reset simulation parameters on initialization
@@ -68,7 +70,8 @@ class WorkoutController extends ChangeNotifier {
           progressPosition = 1.0;
           isPlaying = false;
           progressTimer?.cancel();
-          // Reset simulation parameters when workout ends
+          // Play workout end sound and reset simulation parameters
+          workoutSoundGenerator.workoutEndSound();
           _resetSimulationParameters();
           notifyListeners();
           return;
@@ -133,7 +136,8 @@ class WorkoutController extends ChangeNotifier {
         progressPosition = 0;
         isPlaying = false;
         timer.cancel();
-        // Reset simulation parameters when workout ends
+        // Play workout end sound and reset simulation parameters
+        workoutSoundGenerator.workoutEndSound();
         _resetSimulationParameters();
         notifyListeners();
         return;
@@ -157,6 +161,15 @@ class WorkoutController extends ChangeNotifier {
             
             bleData.ftmsData.targetERG = (targetPower * ftpValue).round();
             currentSegmentTimeRemaining = ((elapsedTime + segment.duration) - currentTime).round();
+
+            // Play countdown sound when approaching next segment
+            if (currentSegmentTimeRemaining <= 3 && !_isCountingDown) {
+              _isCountingDown = true;
+              workoutSoundGenerator.intervalCountdownSound();
+            } else if (currentSegmentTimeRemaining > 3) {
+              _isCountingDown = false;
+            }
+            
             break;
           }
           elapsedTime += segment.duration;

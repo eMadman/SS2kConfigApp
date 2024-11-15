@@ -7,6 +7,7 @@ import '../utils/workout/workout_painter.dart';
 import '../utils/workout/workout_metrics.dart';
 import '../utils/workout/workout_constants.dart';
 import '../utils/workout/workout_controller.dart';
+import '../utils/workout/sounds.dart';
 import '../utils/bledata.dart';
 import '../widgets/device_header.dart';
 import 'dart:async';
@@ -113,7 +114,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
       if (_workoutController.isPlaying && _scrollController.hasClients) {
         final viewportWidth = _scrollController.position.viewportDimension;
         final totalWidth = _scrollController.position.maxScrollExtent + viewportWidth;
-        final progressWidth = totalWidth * _workoutController.progressPosition;
+        // Calculate progress width using the same scale as the CustomPaint
+        final progressWidth = _workoutController.progressPosition * (totalWidth - (2 * WorkoutPadding.standard));
         
         // Calculate the target scroll position to keep the indicator centered
         final targetScroll = progressWidth - (viewportWidth / 2);
@@ -164,6 +166,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
     _workoutController.dispose();
     _scrollController.dispose();
     _ftpController.dispose();
+    workoutSoundGenerator.dispose();
     super.dispose();
   }
 
@@ -294,7 +297,12 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
               IconButton(
                 icon: Icon(_workoutController.isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled),
                 iconSize: 48,
-                onPressed: _workoutController.togglePlayPause,
+                onPressed: () {
+                  if (!_workoutController.isPlaying) {
+                    workoutSoundGenerator.playButtonSound();
+                  }
+                  _workoutController.togglePlayPause();
+                },
               ),
               if (_workoutController.isPlaying)
                 IconButton(
@@ -368,11 +376,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
                     builder: (context, child) {
                       return LayoutBuilder(
                         builder: (context, constraints) {
-                          final graphPadding = WorkoutPadding.standard;
-                          final powerLabelsWidth = 0.0;
                           final minutesWidth = constraints.maxWidth / _zoomAnimation.value;
                           final totalWidth = _workoutController.totalDuration / 60 * minutesWidth;
-                          final widthScale = totalWidth / _workoutController.totalDuration;
 
                           return SingleChildScrollView(
                             controller: _scrollController,
@@ -405,7 +410,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
                                   ),
                                   if (_workoutController.isPlaying)
                                     Positioned(
-                                      left: (powerLabelsWidth + graphPadding) + (_workoutController.progressPosition * _workoutController.totalDuration * widthScale),
+                                      // Calculate position using the same scale as the CustomPaint
+                                      left: _workoutController.progressPosition * (totalWidth - (2 * WorkoutPadding.standard)) + WorkoutPadding.standard,
                                       top: WorkoutPadding.standard,
                                       bottom: WorkoutSpacing.medium + WorkoutPadding.standard,
                                       child: Container(
