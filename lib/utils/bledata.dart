@@ -11,6 +11,8 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 
 import 'constants.dart';
+import 'ftmsControlPoint.dart';
+import 'bleConstants.dart';
 
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import '../utils/snackbar.dart';
@@ -37,21 +39,36 @@ class BLEDataManager {
 class FtmsData {
   late int cadence;
   late int watts;
-  late int targetERG;
+  int _targetERG;
   late int resistance;
   late int mode;
   late int heartRate;
   late int speed;
 
+  // Add getter and setter for targetERG to monitor changes
+  int get targetERG => _targetERG;
+  set targetERG(int value) {
+    if (value != _targetERG) {
+      _targetERG = value;
+      // Notify any listeners that target power has changed
+      if (onTargetPowerChanged != null) {
+        onTargetPowerChanged!(value);
+      }
+    }
+  }
+
+  // Callback for target power changes
+  void Function(int)? onTargetPowerChanged;
+
   FtmsData({
     this.cadence = 0,
     this.watts = 0,
-    this.targetERG = 0,
+    int targetERG = 0,
     this.mode = 0, // 0 = no control, 1 = sim, 2 = ERG.
     this.resistance = 0,
     this.heartRate = 0,
     this.speed = 0,
-  });
+  }) : _targetERG = targetERG;
 }
 
 class BLEData {
@@ -69,7 +86,7 @@ class BLEData {
   BluetoothCharacteristic? indoorBikeCharacteristic;
   BluetoothConnectionState connectionState = BluetoothConnectionState.disconnected;
   List<BluetoothService> services = [];
-  FtmsData ftmsData = new FtmsData();
+  FtmsData ftmsData = FtmsData();
   bool isSimulated = false; //Is this a demo device?
   bool isConnecting = false;
   bool isDisconnecting = false;
@@ -95,6 +112,20 @@ class BLEData {
       if (services.length > 1) {
         await _findChar();
         await updateCustomCharacter(device);
+        
+        // Set up target power change listener
+        ftmsData.onTargetPowerChanged = (int newPower) async {
+          if (ftmsControlPointCharacteristic != null) {
+            try {
+              await FTMSControlPoint.writeTargetPower(
+                ftmsControlPointCharacteristic!,
+                newPower,
+              );
+            } catch (e) {
+              print('Error writing target power to FTMS: $e');
+            }
+          }
+        };
       }
     }
   }
@@ -188,7 +219,7 @@ class BLEData {
               indoorBikeCharacteristic!.setNotifyValue(true);
               print("subscribed to indoor bike characteristic");
             }
-            if (c.uuid == Guid(ftmsControlPointUUID)) {
+            if (c.uuid == Guid(FTMS_CONTROL_POINT_CHARACTERISTIC_UUID)) {
               ftmsControlPointCharacteristic = c;
               ftmsControlPointCharacteristic!.setNotifyValue(true);
               print("subscribed to ftms control point characteristic");
