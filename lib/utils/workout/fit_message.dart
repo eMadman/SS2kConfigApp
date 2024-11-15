@@ -87,6 +87,9 @@ class DataMessage extends FitMessage {
     final ByteData data = ByteData(size);
     
     switch (type) {
+      case FitConstants.TYPE_ENUM:
+        data.setUint8(0, value as int);
+        break;
       case FitConstants.TYPE_UINT8:
       case FitConstants.TYPE_UINT8Z:
         data.setUint8(0, value as int);

@@ -42,6 +42,7 @@ class FitConstants {
   static const int TYPE_BYTE = 13;
 
   // Field Sizes (in bytes)
+  static const int SIZE_ENUM = 1;
   static const int SIZE_SINT8 = 1;
   static const int SIZE_UINT8 = 1;
   static const int SIZE_SINT16 = 2;
