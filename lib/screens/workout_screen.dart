@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -21,7 +22,6 @@ class WorkoutScreen extends StatefulWidget {
   State<WorkoutScreen> createState() => _WorkoutScreenState();
 }
 
-// Changed to TickerProviderStateMixin for multiple animation controllers
 class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateMixin {
   String? _workoutName;
   late AnimationController _fadeController;
@@ -34,7 +34,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
   double _lastScrollPosition = 0;
   late TextEditingController _ftpController;
   
-  // Animation for workout width
   late AnimationController _zoomController;
   late Animation<double> _zoomAnimation;
   static const double previewMinutes = 40;
@@ -48,14 +47,12 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
     _workoutController = WorkoutController(bleData);
     _ftpController = TextEditingController(text: _workoutController.ftpValue.round().toString());
     
-    // Initialize fade animation
     _fadeController = AnimationController(
       duration: WorkoutDurations.fadeAnimation,
       vsync: this,
     );
     _fadeAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(_fadeController);
 
-    // Initialize zoom animation
     _zoomController = AnimationController(
       duration: const Duration(milliseconds: 500),
       vsync: this,
@@ -70,6 +67,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
     
     WidgetsBinding.instance.addPostFrameCallback((_) {
       rwSubscription();
+      _loadDefaultWorkout();
     });
 
     _workoutController.addListener(() {
@@ -83,7 +81,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
       }
       setState(() {
         _workoutName = _workoutController.workoutName;
-        // Update FTP controller when FTP changes and not playing
         if (!_workoutController.isPlaying && 
             _ftpController.text != _workoutController.ftpValue.round().toString()) {
           _ftpController.text = _workoutController.ftpValue.round().toString();
@@ -91,7 +88,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
       });
     });
 
-    // Periodic connection check
     Timer.periodic(const Duration(seconds: 15), (refreshTimer) {
       if (!widget.device.isConnected) {
         try {
@@ -107,6 +103,22 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
     });
   }
 
+  Future<void> _loadDefaultWorkout() async {
+    try {
+      final content = await rootBundle.loadString('assets/test_workout.zwo');
+      _workoutController.loadWorkout(content);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading default workout: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   void _updateScrollPosition() {
     if (!mounted || !_scrollController.hasClients) return;
 
@@ -114,13 +126,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
       if (_workoutController.isPlaying && _scrollController.hasClients) {
         final viewportWidth = _scrollController.position.viewportDimension;
         final totalWidth = _scrollController.position.maxScrollExtent + viewportWidth;
-        // Calculate progress width using the same scale as the CustomPaint
         final progressWidth = _workoutController.progressPosition * (totalWidth - (2 * WorkoutPadding.standard));
         
-        // Calculate the target scroll position to keep the indicator centered
         final targetScroll = progressWidth - (viewportWidth / 2);
         
-        // Only scroll if we've moved enough to warrant it
         if ((targetScroll - _lastScrollPosition).abs() > 1.0) {
           _scrollController.animateTo(
             targetScroll.clamp(0.0, _scrollController.position.maxScrollExtent),
@@ -167,7 +176,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
     _scrollController.dispose();
     _ftpController.dispose();
     workoutSoundGenerator.dispose();
-    // Clear workout state if it's completed
     if (_workoutController.progressPosition >= 1.0) {
       WorkoutStorage.clearWorkoutState();
     }
@@ -274,7 +282,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Centered play controls
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -296,7 +303,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
                 ),
             ],
           ),
-          // FTP Input positioned on the right
           Positioned(
             right: WorkoutPadding.standard,
             child: Row(
