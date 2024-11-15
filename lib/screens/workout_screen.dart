@@ -99,6 +99,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
       } else {
         _fadeController.reverse();
         _zoomController.reverse();
+        // Check if workout completed naturally (reached the end)
+        if (_workoutController.progressPosition >= 1.0) {
+          _showExportDialog();
+        }
       }
       setState(() {
         _workoutName = _workoutController.workoutName;
