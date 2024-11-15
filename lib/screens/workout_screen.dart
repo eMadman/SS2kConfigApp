@@ -1,13 +1,8 @@
-import 'dart:convert';
-import 'dart:ui' as ui;
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/rendering.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
-import 'package:share_plus/share_plus.dart';
-import 'package:cross_file/cross_file.dart';
 import '../utils/workout/workout_parser.dart';
 import '../utils/workout/workout_painter.dart';
 import '../utils/workout/workout_metrics.dart';
@@ -15,12 +10,11 @@ import '../utils/workout/workout_constants.dart';
 import '../utils/workout/workout_controller.dart';
 import '../utils/workout/workout_storage.dart';
 import '../utils/workout/sounds.dart';
+import '../utils/workout/fit_file_exporter.dart';
+import '../utils/workout/workout_file_manager.dart';
 import '../utils/bledata.dart';
 import '../widgets/device_header.dart';
 import '../widgets/workout_library.dart';
-import 'dart:async';
-import 'dart:io';
-import 'package:path_provider/path_provider.dart';
 
 class WorkoutScreen extends StatefulWidget {
   final BluetoothDevice device;
@@ -63,7 +57,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
     _workoutController = WorkoutController(bleData);
     _selectedFTP = _workoutController.ftpValue.round();
     
-    // Initialize FTP scroll controller with current value
     _ftpScrollController = FixedExtentScrollController(
       initialItem: (_selectedFTP - minFTP) ~/ ftpStep,
     );
@@ -101,7 +94,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
         _zoomController.reverse();
         // Check if workout completed naturally (reached the end)
         if (_workoutController.progressPosition >= 1.0) {
-          _showExportDialog();
+          FitFileExporter.showExportDialog(context, _workoutController, _currentWorkoutContent);
         }
       }
       setState(() {
@@ -137,7 +130,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
       await Future.delayed(const Duration(milliseconds: 100));
       
       // Generate and save thumbnail for default workout
-      final thumbnail = await _captureWorkoutThumbnail();
+      final thumbnail = await WorkoutFileManager.captureWorkoutThumbnail(_workoutGraphKey);
       if (thumbnail != null) {
         await WorkoutStorage.updateWorkoutThumbnail(WorkoutStorage.defaultWorkoutName, thumbnail);
       }
@@ -153,146 +146,32 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
     }
   }
 
-  Future<String?> _captureWorkoutThumbnail() async {
-    try {
-      final boundary = _workoutGraphKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-      if (boundary == null) return null;
-
-      final image = await boundary.toImage(pixelRatio: 1.0);
-      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      if (byteData == null) return null;
-
-      return base64Encode(byteData.buffer.asUint8List());
-    } catch (e) {
-      print('Error capturing thumbnail: $e');
-      return null;
-    }
-  }
-
   Future<void> _showStopWorkoutDialog() async {
-  final bool? shouldStop = await showDialog<bool>(
-    context: context,
-    builder: (BuildContext context) {
-      return AlertDialog(
-        title: const Text('End Workout?'),
-        content: const Text('Do you want to end your workout?'),
-        actions: <Widget>[
-          TextButton(
-            child: const Text('NO'),
-            onPressed: () => Navigator.of(context).pop(false),
-          ),
-          TextButton(
-            child: const Text('YES'),
-            onPressed: () => Navigator.of(context).pop(true),
-          ),
-        ],
-      );
-    },
-  );
+    final bool? shouldStop = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('End Workout?'),
+          content: const Text('Do you want to end your workout?'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('NO'),
+              onPressed: () => Navigator.of(context).pop(false),
+            ),
+            TextButton(
+              child: const Text('YES'),
+              onPressed: () => Navigator.of(context).pop(true),
+            ),
+          ],
+        );
+      },
+    );
 
-  if (shouldStop == true) {
-    await _workoutController.stopWorkout();
-    _showExportDialog();
-  }
-}
-
-Future<void> _showExportDialog() async {
-  final bool? shouldExport = await showDialog<bool>(
-    context: context,
-    builder: (BuildContext context) {
-      return AlertDialog(
-        title: const Text('Export Workout'),
-        content: const Text('Would you like to export your workout as a FIT file?'),
-        actions: <Widget>[
-          TextButton(
-            child: const Text('NO'),
-            onPressed: () => Navigator.of(context).pop(false),
-          ),
-          TextButton(
-            child: const Text('YES'),
-            onPressed: () => Navigator.of(context).pop(true),
-          ),
-        ],
-      );
-    },
-  );
-
-  if (shouldExport == true) {
-    await _exportFitFile();
-  }
-
-  // Reset workout position to beginning
-  if (_currentWorkoutContent != null) {
-    _workoutController.loadWorkout(_currentWorkoutContent!);
-  }
-}
-
-Future<void> _exportFitFile() async {
-  try {
-    final fitData = await _workoutController.getLatestFitFile();
-    if (fitData == null) {
-      throw Exception('No FIT file data available');
-    }
-
-    final directory = await getApplicationDocumentsDirectory();
-    final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
-    final fileName = 'workout_${timestamp}.fit';
-    final file = File('${directory.path}/$fileName');
-    
-    await file.writeAsBytes(fitData);
-
-    if (mounted) {
-      final bool? shouldShare = await showDialog<bool>(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: const Text('Workout Exported'),
-            content: Text('File saved to: ${file.path}\n\nWould you like to share it now?'),
-            actions: <Widget>[
-              TextButton(
-                child: const Text('NO'),
-                onPressed: () => Navigator.of(context).pop(false),
-              ),
-              TextButton(
-                child: const Text('YES'),
-                onPressed: () => Navigator.of(context).pop(true),
-              ),
-            ],
-          );
-        },
-      );
-
-      if (shouldShare == true) {
-        try {
-          await Share.shareXFiles(
-            [XFile(file.path),]
-          );
-        } catch (e) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Failed to share file: $e'),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-        }
-      }
-    }
-
-    // Clear the stored FIT file after successful export
-    await _workoutController.clearLatestFitFile();
-  } catch (e) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to export workout: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+    if (shouldStop == true) {
+      await _workoutController.stopWorkout();
+      FitFileExporter.showExportDialog(context, _workoutController, _currentWorkoutContent);
     }
   }
-}
 
   void _updateScrollPosition() {
     if (!mounted || !_scrollController.hasClients) return;
@@ -355,68 +234,6 @@ Future<void> _exportFitFile() async {
       WorkoutStorage.clearWorkoutState();
     }
     super.dispose();
-  }
-
-  Future<void> _pickAndLoadWorkout() async {
-    try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.any,
-        withData: true,
-      );
-
-      if (result != null && result.files.isNotEmpty) {
-        final file = result.files.first;
-        
-        if (file.bytes == null) {
-          throw Exception('Unable to read file data');
-        }
-
-        final content = String.fromCharCodes(file.bytes!);
-        
-        if (!content.trim().contains('<workout_file>')) {
-          throw Exception('Invalid workout file format. Expected .zwo file content.');
-        }
-        
-        // Load the workout to generate the graph
-        _workoutController.loadWorkout(content);
-        _currentWorkoutContent = content;
-        
-        // Wait for the graph to be rendered
-        await Future.delayed(const Duration(milliseconds: 100));
-        
-        // Capture thumbnail
-        final thumbnail = await _captureWorkoutThumbnail();
-        if (thumbnail == null) {
-          throw Exception('Failed to generate workout thumbnail');
-        }
-        
-        // Save to library
-        await WorkoutStorage.saveWorkoutToLibrary(
-          workoutContent: content,
-          workoutName: _workoutController.workoutName ?? 'Unnamed Workout',
-          thumbnailData: thumbnail,
-        );
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Workout imported successfully'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error loading workout file: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
-          ),
-        );
-      }
-    }
   }
 
   void _showWorkoutLibrary({required bool selectionMode}) {
@@ -521,89 +338,89 @@ Future<void> _exportFitFile() async {
   }
 
   Widget _buildControls() {
-  return Container(
-    padding: EdgeInsets.symmetric(vertical: WorkoutPadding.small),
-    child: Stack(
-      alignment: Alignment.center,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (_workoutController.isPlaying)
-              IconButton(
-                icon: const Icon(Icons.stop_circle),
-                iconSize: 48,
-                onPressed: () => _showStopWorkoutDialog(),
-              ),
-            IconButton(
-              icon: Icon(_workoutController.isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled),
-              iconSize: 48,
-              onPressed: () {
-                if (!_workoutController.isPlaying) {
-                  workoutSoundGenerator.playButtonSound();
-                }
-                _workoutController.togglePlayPause();
-              },
-            ),
-            if (_workoutController.isPlaying)
-              IconButton(
-                icon: const Icon(Icons.skip_next),
-                iconSize: 48,
-                onPressed: _workoutController.skipToNextSegment,
-              ),
-          ],
-        ),
-        Positioned(
-          right: WorkoutPadding.standard,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: WorkoutPadding.small),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text('FTP: '),
-              SizedBox(
-                width: 80,
-                height: 220,
-                child: ListWheelScrollView.useDelegate(
-                  controller: _ftpScrollController,
-                  useMagnifier: true,
-                  magnification: 1.3,
-                  clipBehavior: Clip.none,
-                  overAndUnderCenterOpacity: .2,
-                  itemExtent: 40,
-                  perspective: 0.01,
-                  diameterRatio: 2,
-                  physics: const FixedExtentScrollPhysics(),
-                  onSelectedItemChanged: (index) {
-                    setState(() {
-                      _selectedFTP = minFTP + (index * ftpStep);
-                      _workoutController.updateFTP(_selectedFTP.toDouble());
-                    });
-                  },
-                  childDelegate: ListWheelChildBuilderDelegate(
-                    childCount: ((maxFTP - minFTP) ~/ ftpStep) + 1,
-                    builder: (context, index) {
-                      final value = minFTP + (index * ftpStep);
-                      return Container(
-                        alignment: Alignment.center,
-                        child: Text(
-                          value.toString(),
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: value == _selectedFTP ? FontWeight.bold : FontWeight.normal,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+              if (_workoutController.isPlaying)
+                IconButton(
+                  icon: const Icon(Icons.stop_circle),
+                  iconSize: 48,
+                  onPressed: () => _showStopWorkoutDialog(),
                 ),
+              IconButton(
+                icon: Icon(_workoutController.isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled),
+                iconSize: 48,
+                onPressed: () {
+                  if (!_workoutController.isPlaying) {
+                    workoutSoundGenerator.playButtonSound();
+                  }
+                  _workoutController.togglePlayPause();
+                },
               ),
-              const Text('W'),
+              if (_workoutController.isPlaying)
+                IconButton(
+                  icon: const Icon(Icons.skip_next),
+                  iconSize: 48,
+                  onPressed: _workoutController.skipToNextSegment,
+                ),
             ],
           ),
-        ),
-      ],
-    ),
-  );
-}
+          Positioned(
+            right: WorkoutPadding.standard,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('FTP: '),
+                SizedBox(
+                  width: 80,
+                  height: 220,
+                  child: ListWheelScrollView.useDelegate(
+                    controller: _ftpScrollController,
+                    useMagnifier: true,
+                    magnification: 1.3,
+                    clipBehavior: Clip.none,
+                    overAndUnderCenterOpacity: .2,
+                    itemExtent: 40,
+                    perspective: 0.01,
+                    diameterRatio: 2,
+                    physics: const FixedExtentScrollPhysics(),
+                    onSelectedItemChanged: (index) {
+                      setState(() {
+                        _selectedFTP = minFTP + (index * ftpStep);
+                        _workoutController.updateFTP(_selectedFTP.toDouble());
+                      });
+                    },
+                    childDelegate: ListWheelChildBuilderDelegate(
+                      childCount: ((maxFTP - minFTP) ~/ ftpStep) + 1,
+                      builder: (context, index) {
+                        final value = minFTP + (index * ftpStep);
+                        return Container(
+                          alignment: Alignment.center,
+                          child: Text(
+                            value.toString(),
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: value == _selectedFTP ? FontWeight.bold : FontWeight.normal,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                const Text('W'),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -615,7 +432,14 @@ Future<void> _exportFitFile() async {
             onSelected: (value) {
               switch (value) {
                 case 'import':
-                  _pickAndLoadWorkout();
+                  WorkoutFileManager.pickAndLoadWorkout(
+                    context: context,
+                    workoutController: _workoutController,
+                    workoutGraphKey: _workoutGraphKey,
+                    onWorkoutLoaded: (content) {
+                      _currentWorkoutContent = content;
+                    },
+                  );
                   break;
                 case 'select':
                   _showWorkoutLibrary(selectionMode: true);
