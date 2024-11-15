@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import '../utils/workout/workout_parser.dart';
 import '../utils/workout/workout_painter.dart';
 import '../utils/workout/workout_metrics.dart';
@@ -40,6 +41,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
   @override
   void initState() {
     super.initState();
+    WakelockPlus.enable();
     bleData = BLEDataManager.forDevice(widget.device);
     _workoutController = WorkoutController(bleData);
     _ftpController = TextEditingController(text: _workoutController.ftpValue.round().toString());
@@ -154,6 +156,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
 
   @override
   void dispose() {
+    WakelockPlus.disable();
     _fadeController.dispose();
     _zoomController.dispose();
     _connectionStateSubscription?.cancel();

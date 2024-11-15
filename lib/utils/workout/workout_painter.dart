@@ -66,7 +66,7 @@ class WorkoutPainter extends CustomPainter {
       // Draw segment border
       final borderPaint = Paint()
         ..style = PaintingStyle.stroke
-        ..color = Colors.black.withOpacity(WorkoutOpacity.segmentBorder)
+        ..color = const Color.fromARGB(65, 0, 0, 0).withOpacity(WorkoutOpacity.segmentBorder)
         ..strokeWidth = WorkoutStroke.border;
       
       canvas.drawRect(

@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 /// Padding and spacing constants used throughout the workout UI
 class WorkoutPadding {
   /// Standard edge padding for cards and containers
-  static const double standard = 16.0;
+  static const double standard = 8.0;
   
   /// Small padding for tight spaces
-  static const double small = 8.0;
+  static const double small = 6.0;
   
   /// Horizontal padding for metric boxes
-  static const double metricHorizontal = 8.0;
+  static const double metricHorizontal = 4.0;
 }
 
 /// Vertical spacing constants
@@ -45,7 +45,7 @@ class WorkoutSizes {
 /// Font size constants
 class WorkoutFontSizes {
   /// Font size for grid labels and small text
-  static const double small = 10.0;
+  static const double small = 11.0;
 }
 
 /// Duration constants for animations and intervals
@@ -75,7 +75,7 @@ class WorkoutOpacity {
   static const double gridLines = 0.5;
   
   /// Opacity for segment borders
-  static const double segmentBorder = 0.3;
+  static const double segmentBorder = 0.1;
 
   /// Opacity for actual power line
   static const double actualPowerLine = 0.8;
