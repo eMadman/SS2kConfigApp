@@ -104,7 +104,17 @@ class _MainDeviceScreenState extends State<MainDeviceScreen> {
         children: [
           ListTile(
             onTap: onPressed,
-            leading: Image.asset(assetPath, width: 56, fit: BoxFit.cover),
+            leading: SizedBox(
+              width: 56,
+              height: 56,
+              child: Image.asset(
+                assetPath,
+                fit: BoxFit.contain,
+                filterQuality: FilterQuality.high,
+                gaplessPlayback: true,
+                isAntiAlias: true,
+              ),
+            ),
             title: Text(title),
             trailing: IconButton(
               icon: Icon(Icons.arrow_forward),

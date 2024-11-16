@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'dart:math' as math;
 import '../bledata.dart';
 import '../ftmsControlPoint.dart';
 import 'workout_parser.dart';
@@ -24,6 +25,10 @@ class WorkoutController extends ChangeNotifier {
   bool _isCountingDown = false;
   String? _currentWorkoutContent;
   FitFileGenerator? _fitGenerator;
+  int _lastFitRecordTime = 0;
+  double _totalDistance = 0; // Track total distance in meters
+  double _lastAltitude = 100.0; // Starting altitude in meters
+  double _totalAscent = 0; // Track total ascent in meters
 
   WorkoutController(this.bleData) {
     // Reset simulation parameters on initialization
@@ -77,8 +82,12 @@ class WorkoutController extends ChangeNotifier {
     isPlaying = !isPlaying;
     if (isPlaying) {
       _fitGenerator = FitFileGenerator();
+      _lastFitRecordTime = 0;
+      _totalDistance = 0;
+      _lastAltitude = 100.0;
+      _totalAscent = 0;
       startProgress();
-      actualPowerPoints = {}; // Reset power points when starting
+      actualPowerPoints = {};
       elapsedSeconds = 0;
     } else {
       progressTimer?.cancel();
@@ -166,6 +175,9 @@ class WorkoutController extends ChangeNotifier {
       progressPosition = 0;
       actualPowerPoints = {};
       elapsedSeconds = 0;
+      _totalDistance = 0;
+      _lastAltitude = 100.0;
+      _totalAscent = 0;
       _currentWorkoutContent = xmlContent;
       
       // Reset simulation parameters when loading new workout
@@ -188,14 +200,31 @@ class WorkoutController extends ChangeNotifier {
       final currentPower = bleData.ftmsData.watts.toDouble();
       actualPowerPoints[elapsedSeconds] = currentPower;
       
-      // Add record to FIT file
-      _fitGenerator?.addRecord(
-        heartRate: bleData.ftmsData.heartRate,
-        cadence: bleData.ftmsData.cadence,
-        power: bleData.ftmsData.watts,
-        distance: 0, // Add actual distance if available
-        elapsedTime: elapsedSeconds,
-      );
+      // Calculate speed (m/s) from power using the same formula as in FitFileGenerator
+      double speedKmh = currentPower > 0 ? math.pow(currentPower / 0.125, 1/3).toDouble() : 0;
+      double speedMps = speedKmh / 3.6; // Convert km/h to m/s
+      
+      // Update total distance (in meters)
+      _totalDistance += speedMps;
+
+      // Simulate altitude changes based on power output
+      double newAltitude = 100.0 + (currentPower / 400.0) * math.sin(elapsedSeconds / 10.0);
+      if (newAltitude > _lastAltitude) {
+        _totalAscent += newAltitude - _lastAltitude;
+      }
+      _lastAltitude = newAltitude;
+      
+      // Add record to FIT file once per second
+      if (elapsedSeconds > _lastFitRecordTime) {
+        _lastFitRecordTime = elapsedSeconds;
+        _fitGenerator?.addRecord(
+          heartRate: bleData.ftmsData.heartRate,
+          cadence: bleData.ftmsData.cadence,
+          power: bleData.ftmsData.watts,
+          distance: _totalDistance.round(),
+          elapsedTime: elapsedSeconds,
+        );
+      }
 
       if (progressPosition >= 1.0) {
         progressPosition = 0;
