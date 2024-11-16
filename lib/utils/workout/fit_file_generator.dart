@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:math' as math;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'fit_constants.dart';
 import 'fit_message.dart';
@@ -6,7 +7,7 @@ import 'fit_message.dart';
 class FitFileGenerator {
   static const String _fitFileKey = 'latest_fit_file';
   final List<int> _buffer = [];
-  final List<FieldDefinition> _recordFields = [];
+  List<FieldDefinition> _recordFields = []; // Removed final keyword
   int _dataSize = 0;
   late DefinitionMessage _recordDefinition;
   final int _startTime;
@@ -16,51 +17,33 @@ class FitFileGenerator {
   int _avgHeartRate = 0;
   int _totalHeartRateReadings = 0;
   int _avgCadence = 0;
+  int _maxCadence = 0;
   int _totalCadenceReadings = 0;
+  int _avgPower = 0;
+  int _totalPowerReadings = 0;
+  int _maxSpeed = 0;
+  int _totalCalories = 0;
+  int _totalAscent = 0;
+  int _numLaps = 0;
+  bool _hasWrittenTimerStart = false;
 
-  FitFileGenerator() : _startTime = DateTime.now().millisecondsSinceEpoch ~/ 1000 {
+  // Bolingbrook, IL coordinates
+  static const int BOLINGBROOK_LAT = 41734890; // 41.734890 degrees * 1e7
+  static const int BOLINGBROOK_LONG = -88091952; // -88.091952 degrees * 1e7
+
+  FitFileGenerator() 
+      : _startTime = (DateTime.now().millisecondsSinceEpoch ~/ 1000) - FitConstants.FIT_EPOCH_OFFSET {
     _initializeRecordFields();
     _writeFileHeader();
     _writeFileIdMessage();
+    _writeDeviceInfoMessage();
     _writeRecordDefinition();
   }
 
   void _initializeRecordFields() {
-    _recordFields.addAll([
-      FieldDefinition(
-        FitConstants.FIELD_TIMESTAMP,
-        FitConstants.SIZE_UINT32,
-        FitConstants.TYPE_UINT32
-      ),
-      FieldDefinition(
-        FitConstants.FIELD_HEART_RATE,
-        FitConstants.SIZE_UINT8,
-        FitConstants.TYPE_UINT8
-      ),
-      FieldDefinition(
-        FitConstants.FIELD_CADENCE,
-        FitConstants.SIZE_UINT8,
-        FitConstants.TYPE_UINT8
-      ),
-      FieldDefinition(
-        FitConstants.FIELD_POWER,
-        FitConstants.SIZE_UINT16,
-        FitConstants.TYPE_UINT16
-      ),
-      FieldDefinition(
-        FitConstants.FIELD_DISTANCE,
-        FitConstants.SIZE_UINT32,
-        FitConstants.TYPE_UINT32
-      ),
-      FieldDefinition(
-        FitConstants.FIELD_ELAPSED_TIME,
-        FitConstants.SIZE_UINT32,
-        FitConstants.TYPE_UINT32
-      ),
-    ]);
-
+    _recordFields = RecordMessage.getFields();
     _recordDefinition = DefinitionMessage(
-      localMessageType: 0,
+      localMessageType: RecordMessage.LOCAL_MESSAGE_TYPE,
       globalMessageNumber: FitConstants.RECORD,
       fields: _recordFields,
     );
@@ -82,32 +65,91 @@ class FitFileGenerator {
   }
 
   void _writeFileIdMessage() {
-    final fileIdFields = [
-      FieldDefinition(0, FitConstants.SIZE_UINT8, FitConstants.TYPE_UINT8),    // type
-      FieldDefinition(1, FitConstants.SIZE_UINT32, FitConstants.TYPE_UINT32),  // manufacturer
-      FieldDefinition(2, FitConstants.SIZE_UINT16, FitConstants.TYPE_UINT16),  // product
-      FieldDefinition(4, FitConstants.SIZE_UINT32, FitConstants.TYPE_UINT32),  // time_created
-    ];
+    final fileIdFields = FileIdMessage.getFields();
 
     final fileIdDefinition = DefinitionMessage(
-      localMessageType: 0,
+      localMessageType: FileIdMessage.LOCAL_MESSAGE_TYPE,
       globalMessageNumber: FitConstants.FILE_ID,
       fields: fileIdFields,
     );
 
     final fileIdData = DataMessage(
-      localMessageType: 0,
+      localMessageType: FileIdMessage.LOCAL_MESSAGE_TYPE,
       fields: {
         0: 4,                    // type (4 = activity)
         1: 255,                  // manufacturer (255 = development)
         2: 1,                    // product
+        3: 1234,                 // serial_number
         4: _startTime,           // time_created
+        5: 0,                    // number
       },
       fieldDefinitions: fileIdFields,
     );
 
     final List<int> definitionBytes = fileIdDefinition.encode();
     final List<int> dataBytes = fileIdData.encode();
+    
+    _buffer.addAll(definitionBytes);
+    _buffer.addAll(dataBytes);
+    _dataSize += definitionBytes.length + dataBytes.length;
+  }
+
+  void _writeDeviceInfoMessage() {
+    final deviceInfoFields = DeviceInfoMessage.getFields();
+
+    final deviceInfoDefinition = DefinitionMessage(
+      localMessageType: DeviceInfoMessage.LOCAL_MESSAGE_TYPE,
+      globalMessageNumber: FitConstants.DEVICE_INFO,
+      fields: deviceInfoFields,
+    );
+
+    final deviceInfoData = DataMessage(
+      localMessageType: DeviceInfoMessage.LOCAL_MESSAGE_TYPE,
+      fields: {
+        0: 0,                    // device_index (0 = creator)
+        1: 255,                  // manufacturer (255 = development)
+        2: 1,                    // product
+        3: 1234,                 // serial_number
+        4: "SS2K Config App",    // product_name
+        5: 100,                  // software_version (1.00)
+        253: _startTime,         // timestamp
+      },
+      fieldDefinitions: deviceInfoFields,
+    );
+
+    final List<int> definitionBytes = deviceInfoDefinition.encode();
+    final List<int> dataBytes = deviceInfoData.encode();
+    
+    _buffer.addAll(definitionBytes);
+    _buffer.addAll(dataBytes);
+    _dataSize += definitionBytes.length + dataBytes.length;
+  }
+
+  void _writeEventMessage(bool isStart) {
+    final eventFields = EventMessage.getFields();
+
+    final eventDefinition = DefinitionMessage(
+      localMessageType: EventMessage.LOCAL_MESSAGE_TYPE,
+      globalMessageNumber: FitConstants.EVENT,
+      fields: eventFields,
+    );
+
+    final currentTime = _getCurrentFitTime();
+
+    final eventData = DataMessage(
+      localMessageType: EventMessage.LOCAL_MESSAGE_TYPE,
+      fields: {
+        253: currentTime,        // timestamp
+        0: 0,                    // event (0 = timer)
+        1: isStart ? 0 : 4,      // event_type (0 = start, 4 = stop_all)
+        3: 0,                    // data
+        4: 0,                    // event_group
+      },
+      fieldDefinitions: eventFields,
+    );
+
+    final List<int> definitionBytes = eventDefinition.encode();
+    final List<int> dataBytes = eventData.encode();
     
     _buffer.addAll(definitionBytes);
     _buffer.addAll(dataBytes);
@@ -127,26 +169,59 @@ class FitFileGenerator {
     required int distance,
     required int elapsedTime,
   }) {
-    final timestamp = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    if (!_hasWrittenTimerStart) {
+      _writeEventMessage(true); // Write timer start event
+      _hasWrittenTimerStart = true;
+    }
+
+    // Calculate speed (m/s) from power using a simple approximation
+    // P = k * v^3 where k is approximately 0.125 for cycling
+    // Therefore v = (P/0.125)^(1/3)
+    double speedKmh = power > 0 ? math.pow(power / 0.125, 1/3).toDouble() : 0;
+    double speedMps = speedKmh / 3.6; // Convert km/h to m/s
+    int speedScaled = (speedMps * 1000).round(); // Convert to FIT file format (m/s * 1000)
+
+    // Update max speed
+    if (speedScaled > _maxSpeed) {
+      _maxSpeed = speedScaled;
+    }
+
+    // Calculate timestamp based on start time and elapsed seconds
+    final timestamp = _startTime + elapsedTime;
     
     // Update statistics
     _totalDistance = distance;
     _maxPower = power > _maxPower ? power : _maxPower;
     _maxHeartRate = heartRate > _maxHeartRate ? heartRate : _maxHeartRate;
-    _totalHeartRateReadings += heartRate;
-    _avgHeartRate = _totalHeartRateReadings ~/ (elapsedTime > 0 ? elapsedTime : 1);
-    _totalCadenceReadings += cadence;
-    _avgCadence = _totalCadenceReadings ~/ (elapsedTime > 0 ? elapsedTime : 1);
+    _maxCadence = cadence > _maxCadence ? cadence : _maxCadence;
+    
+    if (heartRate > 0) {
+      _totalHeartRateReadings += heartRate;
+      _avgHeartRate = _totalHeartRateReadings ~/ (elapsedTime > 0 ? elapsedTime : 1);
+    }
+    
+    if (cadence > 0) {
+      _totalCadenceReadings += cadence;
+      _avgCadence = _totalCadenceReadings ~/ (elapsedTime > 0 ? elapsedTime : 1);
+    }
+    
+    if (power > 0) {
+      _totalPowerReadings += power;
+      _avgPower = _totalPowerReadings ~/ (elapsedTime > 0 ? elapsedTime : 1);
+    }
+
+    // Update calories (simple estimation)
+    _totalCalories = (_totalPowerReadings * 0.86 / 3600).round();
 
     final dataMessage = DataMessage(
-      localMessageType: 0,
+      localMessageType: RecordMessage.LOCAL_MESSAGE_TYPE,
       fields: {
         FitConstants.FIELD_TIMESTAMP: timestamp,
         FitConstants.FIELD_HEART_RATE: heartRate,
         FitConstants.FIELD_CADENCE: cadence,
         FitConstants.FIELD_POWER: power,
-        FitConstants.FIELD_DISTANCE: distance,
-        FitConstants.FIELD_ELAPSED_TIME: elapsedTime,
+        FitConstants.FIELD_SPEED: speedScaled,
+        FitConstants.FIELD_DISTANCE: distance * 100, // Convert to centimeters for FIT file
       },
       fieldDefinitions: _recordFields,
     );
@@ -156,40 +231,111 @@ class FitFileGenerator {
     _dataSize += messageBytes.length;
   }
 
+  void _writeLapMessage(int currentTime) {
+    final lapFields = LapMessage.getFields();
+
+    final lapDefinition = DefinitionMessage(
+      localMessageType: LapMessage.LOCAL_MESSAGE_TYPE,
+      globalMessageNumber: FitConstants.LAP,
+      fields: lapFields,
+    );
+
+    final elapsedTime = currentTime - _startTime;
+
+    final lapData = DataMessage(
+      localMessageType: LapMessage.LOCAL_MESSAGE_TYPE,
+      fields: {
+        253: currentTime,           // timestamp
+        2: _startTime,              // start_time
+        3: BOLINGBROOK_LAT,         // start_position_lat
+        4: BOLINGBROOK_LONG,        // start_position_long
+        5: BOLINGBROOK_LAT,         // end_position_lat
+        6: BOLINGBROOK_LONG,        // end_position_long
+        7: elapsedTime * 1000,      // total_elapsed_time (ms)
+        8: elapsedTime * 1000,      // total_timer_time (ms)
+        9: _totalDistance * 100,    // total_distance (cm)
+        10: 0,                      // total_cycles
+        254: _numLaps,              // message_index
+        11: _totalCalories,         // total_calories
+        12: 0,                      // total_fat_calories
+        13: _avgPower > 0 ? (math.pow(_avgPower / 0.125, 1/3) * 277.778).round() : 0,  // avg_speed
+        14: _maxSpeed,              // max_speed
+        19: _avgPower,              // avg_power
+        20: _maxPower,              // max_power
+        21: _totalAscent,           // total_ascent
+        22: 0,                      // total_descent
+        15: _avgHeartRate,          // avg_heart_rate
+        16: _maxHeartRate,          // max_heart_rate
+        17: _avgCadence,            // avg_cadence
+        18: _maxCadence,            // max_cadence
+        23: 0,                      // intensity (0 = active)
+        24: 0,                      // lap_trigger (0 = manual)
+        25: 2,                      // sport (2 = cycling)
+        26: 0,                      // event_group
+        0: 9,                       // event (9 = lap)
+        1: 1,                       // event_type (1 = stop)
+      },
+      fieldDefinitions: lapFields,
+    );
+
+    final List<int> definitionBytes = lapDefinition.encode();
+    final List<int> dataBytes = lapData.encode();
+    
+    _buffer.addAll(definitionBytes);
+    _buffer.addAll(dataBytes);
+    _dataSize += definitionBytes.length + dataBytes.length;
+    _numLaps++;
+  }
+
   void _writeSessionMessage() {
-    final sessionFields = [
-      FieldDefinition(253, FitConstants.SIZE_UINT32, FitConstants.TYPE_UINT32), // timestamp
-      FieldDefinition(2, FitConstants.SIZE_UINT32, FitConstants.TYPE_UINT32),   // start_time
-      FieldDefinition(7, FitConstants.SIZE_UINT32, FitConstants.TYPE_UINT32),   // total_elapsed_time
-      FieldDefinition(9, FitConstants.SIZE_UINT32, FitConstants.TYPE_UINT32),   // total_distance
-      FieldDefinition(18, FitConstants.SIZE_UINT16, FitConstants.TYPE_UINT16),  // avg_cadence
-      FieldDefinition(15, FitConstants.SIZE_UINT8, FitConstants.TYPE_UINT8),    // avg_heart_rate
-      FieldDefinition(16, FitConstants.SIZE_UINT8, FitConstants.TYPE_UINT8),    // max_heart_rate
-      FieldDefinition(20, FitConstants.SIZE_UINT16, FitConstants.TYPE_UINT16),  // max_power
-      FieldDefinition(5, FitConstants.SIZE_ENUM, FitConstants.TYPE_ENUM),       // sport
-    ];
+    final sessionFields = SessionMessage.getFields();
 
     final sessionDefinition = DefinitionMessage(
-      localMessageType: 1,
+      localMessageType: SessionMessage.LOCAL_MESSAGE_TYPE,
       globalMessageNumber: FitConstants.SESSION,
       fields: sessionFields,
     );
 
-    final currentTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final currentTime = _getCurrentFitTime();
     final elapsedTime = currentTime - _startTime;
 
     final sessionData = DataMessage(
-      localMessageType: 1,
+      localMessageType: SessionMessage.LOCAL_MESSAGE_TYPE,
       fields: {
-        253: currentTime,      // timestamp
-        2: _startTime,         // start_time
-        7: elapsedTime,        // total_elapsed_time
-        9: _totalDistance,     // total_distance
-        18: _avgCadence,       // avg_cadence
-        15: _avgHeartRate,     // avg_heart_rate
-        16: _maxHeartRate,     // max_heart_rate
-        20: _maxPower,         // max_power
-        5: 2,                  // sport (2 = cycling)
+        253: currentTime,           // timestamp
+        2: _startTime,              // start_time
+        3: BOLINGBROOK_LAT,         // start_position_lat
+        4: BOLINGBROOK_LONG,        // start_position_long
+        7: elapsedTime * 1000,      // total_elapsed_time (ms)
+        8: elapsedTime * 1000,      // total_timer_time (ms)
+        9: _totalDistance * 100,    // total_distance (cm)
+        10: 0,                      // total_cycles
+        29: BOLINGBROOK_LAT,        // nec_lat
+        30: BOLINGBROOK_LONG,       // nec_long
+        31: BOLINGBROOK_LAT,        // swc_lat
+        32: BOLINGBROOK_LONG,       // swc_long
+        254: 0,                     // message_index
+        11: _totalCalories,         // total_calories
+        13: 0,                      // total_fat_calories
+        14: _avgPower > 0 ? (math.pow(_avgPower / 0.125, 1/3) * 277.778).round() : 0,  // avg_speed
+        15: _maxSpeed,              // max_speed
+        20: _avgPower,              // avg_power
+        21: _maxPower,              // max_power
+        22: _totalAscent,           // total_ascent
+        23: 0,                      // total_descent
+        25: 0,                      // first_lap_index
+        26: _numLaps,               // num_laps
+        16: _avgHeartRate,          // avg_heart_rate
+        17: _maxHeartRate,          // max_heart_rate
+        18: _avgCadence,            // avg_cadence
+        19: _maxCadence,            // max_cadence
+        24: 0,                      // total_training_effect
+        27: 0,                      // event_group
+        28: 0,                      // trigger (0 = activity_end)
+        0: 8,                       // event (8 = session)
+        1: 1,                       // event_type (1 = stop)
+        5: 2,                       // sport (2 = cycling)
+        6: 58,                      // sub_sport (58 = virtual_activity)
       },
       fieldDefinitions: sessionFields,
     );
@@ -203,31 +349,28 @@ class FitFileGenerator {
   }
 
   void _writeActivityMessage() {
-    final activityFields = [
-      FieldDefinition(253, FitConstants.SIZE_UINT32, FitConstants.TYPE_UINT32), // timestamp
-      FieldDefinition(1, FitConstants.SIZE_UINT32, FitConstants.TYPE_UINT32),   // total_timer_time
-      FieldDefinition(2, FitConstants.SIZE_UINT16, FitConstants.TYPE_UINT16),   // num_sessions
-      FieldDefinition(3, FitConstants.SIZE_ENUM, FitConstants.TYPE_ENUM),       // type
-      FieldDefinition(4, FitConstants.SIZE_ENUM, FitConstants.TYPE_ENUM),       // event
-    ];
+    final activityFields = ActivityMessage.getFields();
 
     final activityDefinition = DefinitionMessage(
-      localMessageType: 2,
+      localMessageType: ActivityMessage.LOCAL_MESSAGE_TYPE,
       globalMessageNumber: FitConstants.ACTIVITY,
       fields: activityFields,
     );
 
-    final currentTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final currentTime = _getCurrentFitTime();
     final elapsedTime = currentTime - _startTime;
 
     final activityData = DataMessage(
-      localMessageType: 2,
+      localMessageType: ActivityMessage.LOCAL_MESSAGE_TYPE,
       fields: {
-        253: currentTime,    // timestamp
-        1: elapsedTime,      // total_timer_time
-        2: 1,                // num_sessions
-        3: 0,                // type (0 = manual)
-        4: 1,                // event (1 = stop)
+        253: currentTime,           // timestamp
+        0: elapsedTime * 1000,      // total_timer_time (ms)
+        5: currentTime - 3600,      // local_timestamp (1 hour offset)
+        1: 1,                       // num_sessions
+        2: 0,                       // type (0 = manual)
+        3: 26,                      // event (26 = activity)
+        4: 1,                       // event_type (1 = stop)
+        6: 0,                       // event_group
       },
       fieldDefinitions: activityFields,
     );
@@ -253,6 +396,14 @@ class FitFileGenerator {
   }
 
   Future<void> finalize() async {
+    final currentTime = _getCurrentFitTime();
+    
+    // Write timer stop event
+    _writeEventMessage(false);
+    
+    // Write lap message
+    _writeLapMessage(currentTime);
+    
     // Write session and activity messages
     _writeSessionMessage();
     _writeActivityMessage();
@@ -296,5 +447,9 @@ class FitFileGenerator {
   static Future<void> clearLatestFitFile() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_fitFileKey);
+  }
+
+  int _getCurrentFitTime() {
+    return (DateTime.now().millisecondsSinceEpoch ~/ 1000) - FitConstants.FIT_EPOCH_OFFSET;
   }
 }

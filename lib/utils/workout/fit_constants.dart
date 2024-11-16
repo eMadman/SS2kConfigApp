@@ -12,6 +12,8 @@ class FitConstants {
 
   // Global Message Numbers
   static const int FILE_ID = 0;
+  static const int DEVICE_INFO = 23;
+  static const int EVENT = 21;
   static const int ACTIVITY = 34;
   static const int SESSION = 18;
   static const int LAP = 19;
@@ -24,6 +26,7 @@ class FitConstants {
   static const int FIELD_POWER = 7;
   static const int FIELD_DISTANCE = 5;
   static const int FIELD_ELAPSED_TIME = 2;
+  static const int FIELD_SPEED = 6;  // Added speed field
 
   // Data Types
   static const int TYPE_ENUM = 0;
@@ -51,10 +54,25 @@ class FitConstants {
   static const int SIZE_UINT32 = 4;
   static const int SIZE_FLOAT32 = 4;
   static const int SIZE_FLOAT64 = 8;
+  static const int SIZE_STRING = 20;  // Default string size
 
   // Architecture Type
   static const int LITTLE_ENDIAN = 0;
   static const int BIG_ENDIAN = 1;
+
+  // Event Types
+  static const int EVENT_TIMER = 0;
+  static const int EVENT_TYPE_START = 0;
+  static const int EVENT_TYPE_STOP_ALL = 4;
+  static const int EVENT_TYPE_STOP = 1;
+
+  // Sport Types
+  static const int SPORT_CYCLING = 2;
+  static const int SUB_SPORT_VIRTUAL = 58;
+
+  // Time Constants
+  // Seconds from UTC 1989-12-31 00:00:00 to Unix epoch 1970-01-01 00:00:00
+  static const int FIT_EPOCH_OFFSET = 631065600;
 
   // CRC Table
   static const List<int> CRC_TABLE = [
