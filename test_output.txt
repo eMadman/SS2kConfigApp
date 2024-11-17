@@ -1,0 +1,8 @@
+﻿00:00 +0: loading C:/Users/anthony/Documents/GitHub/SS2kConfigApp/test/gpx_file_exporter_test.dart
+00:00 +0: GPX file generator correctly generates test points from test_ride.gpx
+00:00 +0 -1: GPX file generator correctly generates test points from test_ride.gpx [E]
+  Bad state: No element
+  dart:core                               Iterable.first
+  test\gpx_file_exporter_test.dart 22:59  main.<fn>
+  
+00:00 +0 -1: Some tests failed.
