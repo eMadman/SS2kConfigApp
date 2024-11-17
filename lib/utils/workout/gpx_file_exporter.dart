@@ -189,25 +189,43 @@ ${bikeTrackPoints.map((point) => '''   <trkpt lat="${point.lat}" lon="${point.lo
 
   static Future<void> exportGpxFile(BuildContext context, WorkoutController workoutController) async {
     try {
-      // Get the application documents directory
-      final appDir = await getApplicationDocumentsDirectory();
-      
-      // Create a 'workouts' subdirectory if it doesn't exist
-      final workoutsDir = Directory('${appDir.path}${Platform.pathSeparator}workouts');
-      if (!await workoutsDir.exists()) {
-        await workoutsDir.create(recursive: true);
-      }
-
       final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
       final fileName = 'workout_${timestamp}.gpx';
-      final file = File('${workoutsDir.path}${Platform.pathSeparator}$fileName');
-
+      
       // Generate GPX content using collected track points
       final gpxContent = generateGpxContent(
         workoutController.workoutName ?? 'Unnamed Workout',
         workoutController.trackPoints,
       );
 
+      if (gpxContent.isEmpty) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No workout data to export'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Get the appropriate directory based on platform
+      final Directory appDir;
+      if (Platform.isIOS) {
+        appDir = await getApplicationDocumentsDirectory();
+      } else {
+        appDir = await getApplicationDocumentsDirectory();
+      }
+
+      // Create workouts directory if it doesn't exist
+      final workoutsDir = Directory('${appDir.path}${Platform.pathSeparator}workouts');
+      if (!await workoutsDir.exists()) {
+        await workoutsDir.create(recursive: true);
+      }
+
+      // Save the file
+      final file = File('${workoutsDir.path}${Platform.pathSeparator}$fileName');
       await file.writeAsString(gpxContent);
 
       if (context.mounted) {
