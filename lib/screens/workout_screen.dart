@@ -94,7 +94,14 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
         _zoomController.reverse();
         // Check if workout completed naturally (reached the end)
         if (_workoutController.progressPosition >= 1.0) {
-          GpxFileExporter.showExportDialog(context, _workoutController, _currentWorkoutContent);
+          //reset progress position
+          _workoutController.progressPosition = 0;
+          // Add a small delay to ensure the workout end sound plays first
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              GpxFileExporter.showExportDialog(context, _workoutController, _currentWorkoutContent);
+            }
+          });
         }
       }
       setState(() {

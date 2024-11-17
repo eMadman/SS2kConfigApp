@@ -48,7 +48,7 @@ class WorkoutController extends ChangeNotifier {
   double _totalDistance = 0; // Track total distance in meters
   double _lastAltitude = 100.0; // Starting altitude in meters
   double _totalAscent = 0; // Track total ascent in meters
-  
+
   // Store track points during workout
   final List<TrackPoint> trackPoints = [];
   DateTime? _workoutStartTime;
@@ -63,19 +63,19 @@ class WorkoutController extends ChangeNotifier {
   Future<void> _initializeController() async {
     // Load saved FTP value
     ftpValue = await WorkoutStorage.loadFTP();
-    
+
     // Load saved workout state
     final savedState = await WorkoutStorage.loadWorkoutState();
     final workoutContent = savedState['workoutContent'] as String?;
-    
+
     if (workoutContent != null) {
       // Load the saved workout
       loadWorkout(workoutContent);
-      
+
       // Restore progress
       progressPosition = savedState['progressPosition'] as double;
       elapsedSeconds = savedState['elapsedSeconds'] as int;
-      
+
       // Resume if it was playing
       if (savedState['wasPlaying'] as bool) {
         isPlaying = true;
@@ -132,7 +132,7 @@ class WorkoutController extends ChangeNotifier {
 
     double currentTime = progressPosition * totalDuration;
     double elapsedTime = 0;
-    
+
     for (int i = 0; i < segments.length; i++) {
       if (currentTime >= elapsedTime && currentTime < elapsedTime + segments[i].duration) {
         // If this is the last segment, stop the workout
@@ -147,7 +147,7 @@ class WorkoutController extends ChangeNotifier {
           notifyListeners();
           return;
         }
-        
+
         // Skip to the start of the next segment
         progressPosition = (elapsedTime + segments[i].duration) / totalDuration;
         _saveWorkoutState();
@@ -161,23 +161,22 @@ class WorkoutController extends ChangeNotifier {
   void loadWorkout(String xmlContent) {
     try {
       final workoutData = WorkoutParser.parseZwoFile(xmlContent);
-      
+
       double maxPowerTemp = 0;
       double totalDurationTemp = 0;
-      
+
       for (var segment in workoutData.segments) {
         if (segment.isRamp) {
-          maxPowerTemp = [maxPowerTemp, segment.powerLow, segment.powerHigh]
-              .reduce((curr, next) => curr > next ? curr : next);
+          maxPowerTemp =
+              [maxPowerTemp, segment.powerLow, segment.powerHigh].reduce((curr, next) => curr > next ? curr : next);
         } else {
-          maxPowerTemp = [maxPowerTemp, segment.powerLow]
-              .reduce((curr, next) => curr > next ? curr : next);
+          maxPowerTemp = [maxPowerTemp, segment.powerLow].reduce((curr, next) => curr > next ? curr : next);
         }
         totalDurationTemp += segment.duration;
       }
 
       maxPowerTemp *= 1.1;
-      
+
       segments = workoutData.segments;
       workoutName = workoutData.name;
       maxPower = maxPowerTemp;
@@ -189,10 +188,10 @@ class WorkoutController extends ChangeNotifier {
       _lastAltitude = 100.0;
       _totalAscent = 0;
       _currentWorkoutContent = xmlContent;
-      
+
       // Reset simulation parameters when loading new workout
       _resetSimulationParameters();
-      
+
       _saveWorkoutState();
       notifyListeners();
     } catch (e) {
@@ -205,19 +204,19 @@ class WorkoutController extends ChangeNotifier {
     _workoutStartTime = DateTime.now();
     _lastTrackPointTime = _workoutStartTime;
     trackPoints.clear();
-    
+
     progressTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
       progressPosition += 0.1 / totalDuration;
       elapsedSeconds = (progressPosition * totalDuration).round();
-      
+
       // Store power value at current time index
       final currentPower = bleData.ftmsData.watts.toDouble();
       actualPowerPoints[elapsedSeconds] = currentPower;
-      
+
       // Calculate speed (m/s) from power
-      double speedKmh = currentPower > 0 ? math.pow(currentPower / 0.125, 1/3).toDouble() : 0;
+      double speedKmh = currentPower > 0 ? math.pow(currentPower / 0.125, 1 / 3).toDouble() : 0;
       double speedMps = speedKmh / 3.6; // Convert km/h to m/s
-      
+
       // Update total distance (in meters)
       _totalDistance += speedMps * 0.1; // 0.1 seconds worth of distance
 
@@ -245,7 +244,7 @@ class WorkoutController extends ChangeNotifier {
       }
 
       if (progressPosition >= 1.0) {
-        progressPosition = 0;
+        //progressPosition = 0; we will reset the progress position in the workout_screen.dart so that the save file dialog triggers correctly.
         isPlaying = false;
         timer.cancel();
         // Play workout end sound and reset simulation parameters
@@ -260,18 +259,18 @@ class WorkoutController extends ChangeNotifier {
       if (segments.isNotEmpty) {
         double currentTime = progressPosition * totalDuration;
         double elapsedTime = 0;
-        
+
         for (var segment in segments) {
           if (currentTime >= elapsedTime && currentTime < elapsedTime + segment.duration) {
             double segmentProgress = (currentTime - elapsedTime) / segment.duration;
             double targetPower;
-            
+
             if (segment.isRamp) {
               targetPower = segment.powerLow + (segment.powerHigh - segment.powerLow) * segmentProgress;
             } else {
               targetPower = segment.powerLow;
             }
-            
+
             bleData.ftmsData.targetERG = (targetPower * ftpValue).round();
             currentSegmentTimeRemaining = ((elapsedTime + segment.duration) - currentTime).round();
 
@@ -282,7 +281,7 @@ class WorkoutController extends ChangeNotifier {
             } else if (currentSegmentTimeRemaining > 3) {
               _isCountingDown = false;
             }
-            
+
             break;
           }
           elapsedTime += segment.duration;
@@ -307,7 +306,7 @@ class WorkoutController extends ChangeNotifier {
   List<double> getPowerPointsUpToNow() {
     final maxSeconds = elapsedSeconds;
     List<double> points = List.filled(maxSeconds + 1, 0);
-    
+
     for (int i = 0; i <= maxSeconds; i++) {
       // Use the actual power value if we have it, otherwise interpolate between known points
       if (actualPowerPoints.containsKey(i)) {
@@ -320,7 +319,7 @@ class WorkoutController extends ChangeNotifier {
         int? afterTime = actualPowerPoints.keys
             .where((time) => time > i)
             .fold<int?>(null, (min, time) => min == null || time < min ? time : min);
-            
+
         if (beforeTime != null && afterTime != null) {
           // Interpolate between known points
           double beforeValue = actualPowerPoints[beforeTime]!;
@@ -339,7 +338,7 @@ class WorkoutController extends ChangeNotifier {
         }
       }
     }
-    
+
     return points;
   }
 
@@ -355,7 +354,7 @@ class WorkoutController extends ChangeNotifier {
     final hours = seconds ~/ 3600;
     final minutes = (seconds % 3600) ~/ 60;
     final remainingSeconds = seconds % 60;
-    
+
     return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
   }
 
