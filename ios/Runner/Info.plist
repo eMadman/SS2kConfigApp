@@ -36,6 +36,12 @@
 	<string>We need access in order to store and upload firmware to our device.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>In order to output sounds for workout events, we need to access the microphone. </string>
+	<key>NSDocumentsUsageDescription</key>
+	<string>We need access to save your workout files.</string>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
+	<key>UIFileSharingEnabled</key>
+	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

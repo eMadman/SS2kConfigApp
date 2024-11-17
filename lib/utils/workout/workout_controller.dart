@@ -7,7 +7,28 @@ import 'workout_parser.dart';
 import 'workout_constants.dart';
 import 'workout_storage.dart';
 import 'sounds.dart';
-import 'fit_file_generator.dart';
+
+class TrackPoint {
+  final DateTime timestamp;
+  final double lat;
+  final double lon;
+  final double elevation;
+  final int heartRate;
+  final int cadence;
+  final int power;
+  final double speed; // Speed in m/s
+
+  TrackPoint({
+    required this.timestamp,
+    required this.lat,
+    required this.lon,
+    required this.elevation,
+    required this.heartRate,
+    required this.cadence,
+    required this.power,
+    required this.speed,
+  });
+}
 
 class WorkoutController extends ChangeNotifier {
   List<WorkoutSegment> segments = [];
@@ -24,11 +45,14 @@ class WorkoutController extends ChangeNotifier {
   final BLEData bleData;
   bool _isCountingDown = false;
   String? _currentWorkoutContent;
-  FitFileGenerator? _fitGenerator;
-  int _lastFitRecordTime = 0;
   double _totalDistance = 0; // Track total distance in meters
   double _lastAltitude = 100.0; // Starting altitude in meters
   double _totalAscent = 0; // Track total ascent in meters
+  
+  // Store track points during workout
+  final List<TrackPoint> trackPoints = [];
+  DateTime? _workoutStartTime;
+  DateTime? _lastTrackPointTime;
 
   WorkoutController(this.bleData) {
     // Reset simulation parameters on initialization
@@ -55,7 +79,6 @@ class WorkoutController extends ChangeNotifier {
       // Resume if it was playing
       if (savedState['wasPlaying'] as bool) {
         isPlaying = true;
-        _fitGenerator = FitFileGenerator();
         startProgress();
       }
     }
@@ -81,8 +104,6 @@ class WorkoutController extends ChangeNotifier {
   void togglePlayPause() {
     isPlaying = !isPlaying;
     if (isPlaying) {
-      _fitGenerator = FitFileGenerator();
-      _lastFitRecordTime = 0;
       _totalDistance = 0;
       _lastAltitude = 100.0;
       _totalAscent = 0;
@@ -101,18 +122,9 @@ class WorkoutController extends ChangeNotifier {
   Future<void> stopWorkout() async {
     isPlaying = false;
     progressTimer?.cancel();
-    await _fitGenerator?.finalize();
     _resetSimulationParameters();
     _saveWorkoutState();
     notifyListeners();
-  }
-
-  Future<List<int>?> getLatestFitFile() async {
-    return FitFileGenerator.getLatestFitFile();
-  }
-
-  Future<void> clearLatestFitFile() async {
-    await FitFileGenerator.clearLatestFitFile();
   }
 
   void skipToNextSegment() {
@@ -131,8 +143,6 @@ class WorkoutController extends ChangeNotifier {
           // Play workout end sound and reset simulation parameters
           workoutSoundGenerator.workoutEndSound();
           _resetSimulationParameters();
-          // Finalize FIT file
-          _fitGenerator?.finalize();
           _saveWorkoutState();
           notifyListeners();
           return;
@@ -192,20 +202,24 @@ class WorkoutController extends ChangeNotifier {
 
   void startProgress() {
     progressTimer?.cancel();
-    progressTimer = Timer.periodic(WorkoutDurations.progressUpdateInterval, (timer) {
-      progressPosition += WorkoutDurations.progressUpdateInterval.inMilliseconds / (totalDuration * 1000);
+    _workoutStartTime = DateTime.now();
+    _lastTrackPointTime = _workoutStartTime;
+    trackPoints.clear();
+    
+    progressTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+      progressPosition += 0.1 / totalDuration;
       elapsedSeconds = (progressPosition * totalDuration).round();
       
       // Store power value at current time index
       final currentPower = bleData.ftmsData.watts.toDouble();
       actualPowerPoints[elapsedSeconds] = currentPower;
       
-      // Calculate speed (m/s) from power using the same formula as in FitFileGenerator
+      // Calculate speed (m/s) from power
       double speedKmh = currentPower > 0 ? math.pow(currentPower / 0.125, 1/3).toDouble() : 0;
       double speedMps = speedKmh / 3.6; // Convert km/h to m/s
       
       // Update total distance (in meters)
-      _totalDistance += speedMps;
+      _totalDistance += speedMps * 0.1; // 0.1 seconds worth of distance
 
       // Simulate altitude changes based on power output
       double newAltitude = 100.0 + (currentPower / 400.0) * math.sin(elapsedSeconds / 10.0);
@@ -213,17 +227,21 @@ class WorkoutController extends ChangeNotifier {
         _totalAscent += newAltitude - _lastAltitude;
       }
       _lastAltitude = newAltitude;
-      
-      // Add record to FIT file once per second
-      if (elapsedSeconds > _lastFitRecordTime) {
-        _lastFitRecordTime = elapsedSeconds;
-        _fitGenerator?.addRecord(
+
+      // Store track point every second
+      final now = DateTime.now();
+      if (_lastTrackPointTime == null || now.difference(_lastTrackPointTime!) >= const Duration(seconds: 1)) {
+        trackPoints.add(TrackPoint(
+          timestamp: now,
+          lat: 44.8113, // Eau Claire center - this will be updated by GPX exporter to create bike shape
+          lon: -91.4985,
+          elevation: _lastAltitude,
           heartRate: bleData.ftmsData.heartRate,
           cadence: bleData.ftmsData.cadence,
           power: bleData.ftmsData.watts,
-          distance: _totalDistance.round(),
-          elapsedTime: elapsedSeconds,
-        );
+          speed: speedMps,
+        ));
+        _lastTrackPointTime = now;
       }
 
       if (progressPosition >= 1.0) {
@@ -233,8 +251,6 @@ class WorkoutController extends ChangeNotifier {
         // Play workout end sound and reset simulation parameters
         workoutSoundGenerator.workoutEndSound();
         _resetSimulationParameters();
-        // Finalize FIT file
-        _fitGenerator?.finalize();
         _saveWorkoutState();
         notifyListeners();
         return;
@@ -343,9 +359,8 @@ class WorkoutController extends ChangeNotifier {
     return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
   }
 
-  @override
-  void dispose() {
-    progressTimer?.cancel();
-    super.dispose();
-  }
+  // Getters for GPX file generation
+  double get totalDistance => _totalDistance;
+  double get currentAltitude => _lastAltitude;
+  double get totalAscent => _totalAscent;
 }
