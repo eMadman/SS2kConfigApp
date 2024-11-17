@@ -1,48 +1,26 @@
 import 'dart:io';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:cross_file/cross_file.dart';
 import 'workout_controller.dart';
+import 'bike_shape_generator.dart';
 
 class GpxFileExporter {
-  // Eau Claire, WI coordinates
-  static const double centerLat = 44.8113;
-  static const double centerLon = -91.4985;
-  
-  // Bike dimensions (in degrees)
-  static const double wheelRadius = 0.05; // Larger wheels
-  static const double frameLength = 0.3; // Total frame length
-  static const double frameHeight = 0.2; // Total frame height
-
-  // Power output constants for a 150lb rider
-  static const double targetWattsFor20mph = 165.0; // Average watts needed for 20mph
-  static const double targetDistanceKm = 32.19; // Distance at 20mph for 1 hour
-
-  // Constants for coordinate calculations
-  static const double metersPerDegreeLatitude = 111320.0; // At equator
-
-  static double _getMetersPerDegreeLongitude() {
-    return metersPerDegreeLatitude * cos(centerLat * pi / 180); // At Eau Claire
-  }
-
-  static List<TrackPoint> generateBikeTrackPoints(List<TrackPoint> originalPoints) {
+  static Future<List<TrackPoint>> generateBikeTrackPoints(List<TrackPoint> originalPoints) async {
     final mappedPoints = <TrackPoint>[];
-    double totalDistance = 0.0;
     
+    // Extract speeds from original points
+    final speeds = originalPoints.map((point) => point.speed).toList();
+    
+    // Generate bike shape coordinates based on speeds
+    final bikePoints = await BikeShapeGenerator.generateBikeShape(speeds);
+    
+    // Map original data to new coordinates
     for (int i = 0; i < originalPoints.length; i++) {
       final point = originalPoints[i];
+      final bikePoint = bikePoints[i];
       
-      // Calculate distance traveled in this second
-      final distanceMeters = point.speed; // Speed in m/s = distance in meters for 1 second
-      totalDistance += distanceMeters;
-      
-      // Calculate position along bike shape based on total distance
-      final progress = totalDistance / (targetDistanceKm * 1000); // Convert target distance to meters
-      final bikePoint = _getBikePointAtProgress(progress);
-      
-      // Create new track point with bike shape coordinates
       mappedPoints.add(TrackPoint(
         timestamp: point.timestamp,
         lat: bikePoint.lat,
@@ -58,73 +36,16 @@ class GpxFileExporter {
     return mappedPoints;
   }
 
-  static ({double lat, double lon}) _getBikePointAtProgress(double progress) {
-    // Normalize progress to repeat the bike shape
-    final normalizedProgress = progress - progress.floor();
-    
-    // Calculate bike frame points
-    final frontWheelCenter = (
-      lat: centerLat - frameHeight/3,
-      lon: centerLon - frameLength/2
-    );
-    final rearWheelCenter = (
-      lat: centerLat - frameHeight/3,
-      lon: centerLon + frameLength/4
-    );
-    
-    // Define bike segments and their relative lengths
-    final segments = [
-      (start: frontWheelCenter, end: (lat: centerLat, lon: centerLon)), // Down tube
-      (start: (lat: centerLat, lon: centerLon), end: (lat: centerLat + frameHeight/2, lon: centerLon)), // Seat tube
-      (start: (lat: centerLat + frameHeight/2, lon: centerLon), end: frontWheelCenter), // Top tube
-      (start: frontWheelCenter, end: rearWheelCenter), // Bottom line
-    ];
-    
-    // Calculate total length of bike frame
-    double totalLength = 0;
-    for (final segment in segments) {
-      totalLength += _calculateDistance(segment.start.lat, segment.start.lon,
-                                     segment.end.lat, segment.end.lon);
-    }
-    
-    // Find point along the bike frame
-    double targetDistance = normalizedProgress * totalLength;
-    double currentDistance = 0;
-    
-    for (final segment in segments) {
-      final segmentLength = _calculateDistance(segment.start.lat, segment.start.lon,
-                                           segment.end.lat, segment.end.lon);
-      if (currentDistance + segmentLength >= targetDistance) {
-        final segmentProgress = (targetDistance - currentDistance) / segmentLength;
-        return (
-          lat: segment.start.lat + (segment.end.lat - segment.start.lat) * segmentProgress,
-          lon: segment.start.lon + (segment.end.lon - segment.start.lon) * segmentProgress,
-        );
-      }
-      currentDistance += segmentLength;
-    }
-    
-    // Default to center if something goes wrong
-    return (lat: centerLat, lon: centerLon);
-  }
-
-  static double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
-    // Convert coordinate differences to meters
-    final dlat = (lat2 - lat1) * metersPerDegreeLatitude;
-    final dlon = (lon2 - lon1) * _getMetersPerDegreeLongitude();
-    return sqrt(dlat * dlat + dlon * dlon);
-  }
-
-  static String generateGpxContent(
+  static Future<String> generateGpxContent(
     String workoutName,
     List<TrackPoint> trackPoints,
-  ) {
+  ) async {
     if (trackPoints.isEmpty) {
       return ''; // Return empty string if no track points
     }
 
     // Generate bike shape track points based on speed and distance
-    final bikeTrackPoints = generateBikeTrackPoints(trackPoints);
+    final bikeTrackPoints = await generateBikeTrackPoints(trackPoints);
 
     return '''<?xml version="1.0" encoding="UTF-8"?>
 <gpx xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
@@ -193,7 +114,7 @@ ${bikeTrackPoints.map((point) => '''   <trkpt lat="${point.lat}" lon="${point.lo
       final fileName = 'workout_${timestamp}.gpx';
       
       // Generate GPX content using collected track points
-      final gpxContent = generateGpxContent(
+      final gpxContent = await generateGpxContent(
         workoutController.workoutName ?? 'Unnamed Workout',
         workoutController.trackPoints,
       );

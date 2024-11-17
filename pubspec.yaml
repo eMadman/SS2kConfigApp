@@ -34,6 +34,11 @@ dependencies:
   just_audio: ^0.9.36
   share_plus: ^10.1.2
 
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  test: ^1.24.9
+
 flutter:
   uses-material-design: true
 
