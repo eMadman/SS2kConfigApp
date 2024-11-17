@@ -10,7 +10,7 @@ import '../utils/workout/workout_constants.dart';
 import '../utils/workout/workout_controller.dart';
 import '../utils/workout/workout_storage.dart';
 import '../utils/workout/sounds.dart';
-import '../utils/workout/fit_file_exporter.dart';
+import '../utils/workout/gpx_file_exporter.dart';
 import '../utils/workout/workout_file_manager.dart';
 import '../utils/bledata.dart';
 import '../widgets/device_header.dart';
@@ -36,7 +36,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
   final ScrollController _scrollController = ScrollController();
   double _lastScrollPosition = 0;
   final GlobalKey _workoutGraphKey = GlobalKey();
-  
+
   late AnimationController _zoomController;
   late Animation<double> _zoomAnimation;
   static const double previewMinutes = 40;
@@ -56,11 +56,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
     bleData = BLEDataManager.forDevice(widget.device);
     _workoutController = WorkoutController(bleData);
     _selectedFTP = _workoutController.ftpValue.round();
-    
+
     _ftpScrollController = FixedExtentScrollController(
       initialItem: (_selectedFTP - minFTP) ~/ ftpStep,
     );
-    
+
     _fadeController = AnimationController(
       duration: WorkoutDurations.fadeAnimation,
       vsync: this,
@@ -78,7 +78,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
       parent: _zoomController,
       curve: Curves.easeInOut,
     ));
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       rwSubscription();
       _loadDefaultWorkout();
@@ -94,7 +94,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
         _zoomController.reverse();
         // Check if workout completed naturally (reached the end)
         if (_workoutController.progressPosition >= 1.0) {
-          FitFileExporter.showExportDialog(context, _workoutController, _currentWorkoutContent);
+          GpxFileExporter.showExportDialog(context, _workoutController, _currentWorkoutContent);
         }
       }
       setState(() {
@@ -128,7 +128,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
       _currentWorkoutContent = content;
       // Wait for the graph to be rendered
       await Future.delayed(const Duration(milliseconds: 100));
-      
+
       // Generate and save thumbnail for default workout
       final thumbnail = await WorkoutFileManager.captureWorkoutThumbnail(_workoutGraphKey);
       if (thumbnail != null) {
@@ -169,7 +169,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
 
     if (shouldStop == true) {
       await _workoutController.stopWorkout();
-      FitFileExporter.showExportDialog(context, _workoutController, _currentWorkoutContent);
+      GpxFileExporter.showExportDialog(context, _workoutController, _currentWorkoutContent);
     }
   }
 
@@ -181,9 +181,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
         final viewportWidth = _scrollController.position.viewportDimension;
         final totalWidth = _scrollController.position.maxScrollExtent + viewportWidth;
         final progressWidth = _workoutController.progressPosition * (totalWidth - (2 * WorkoutPadding.standard));
-        
+
         final targetScroll = progressWidth - (viewportWidth / 2);
-        
+
         if ((targetScroll - _lastScrollPosition).abs() > 1.0) {
           _scrollController.animateTo(
             targetScroll.clamp(0.0, _scrollController.position.maxScrollExtent),
@@ -202,7 +202,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
         setState(() {});
       }
     });
-    
+
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
       bleData.isReadingOrWriting.addListener(_rwListener);
     });
@@ -283,16 +283,15 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
 
     int totalTime = _workoutController.totalDuration.round();
     double normalizedWork = 0;
-    
+
     for (var segment in _workoutController.segments) {
       if (segment.isRamp) {
-        normalizedWork += segment.duration * 
-            ((segment.powerLow + segment.powerHigh) / 2) * _workoutController.ftpValue;
+        normalizedWork += segment.duration * ((segment.powerLow + segment.powerHigh) / 2) * _workoutController.ftpValue;
       } else {
         normalizedWork += segment.duration * segment.powerLow * _workoutController.ftpValue;
       }
     }
-    
+
     final intensityFactor = (normalizedWork / totalTime) / _workoutController.ftpValue;
     final tss = (totalTime * intensityFactor * intensityFactor) / 36;
 
@@ -530,7 +529,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
                                                 ftpValue: _workoutController.ftpValue,
                                                 currentProgress: _workoutController.progressPosition,
                                                 actualPowerPoints: _workoutController.actualPowerPoints,
-                                                currentPower: _workoutController.isPlaying ? bleData.ftmsData.watts.toDouble() : null,
+                                                currentPower: _workoutController.isPlaying
+                                                    ? bleData.ftmsData.watts.toDouble()
+                                                    : null,
                                               ),
                                               child: Container(),
                                             ),
@@ -541,12 +542,15 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
                                     ),
                                     if (_workoutController.isPlaying)
                                       Positioned(
-                                        left: _workoutController.progressPosition * (totalWidth - (2 * WorkoutPadding.standard)) + WorkoutPadding.standard,
+                                        left: _workoutController.progressPosition *
+                                                (totalWidth - (2 * WorkoutPadding.standard)) +
+                                            WorkoutPadding.standard,
                                         top: WorkoutPadding.standard,
                                         bottom: WorkoutSpacing.medium + WorkoutPadding.standard,
                                         child: Container(
                                           width: WorkoutSizes.progressIndicatorWidth,
-                                          color: const Color.fromARGB(255, 0, 0, 0).withOpacity(WorkoutOpacity.segmentBorder),
+                                          color: const Color.fromARGB(255, 0, 0, 0)
+                                              .withOpacity(WorkoutOpacity.segmentBorder),
                                         ),
                                       ),
                                   ],
