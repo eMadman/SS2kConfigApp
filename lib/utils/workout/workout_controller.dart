@@ -103,12 +103,17 @@ class WorkoutController extends ChangeNotifier {
   void togglePlayPause() {
     isPlaying = !isPlaying;
     if (isPlaying) {
-      _totalDistance = 0;
-      _lastAltitude = 100.0;
-      _totalAscent = 0;
+      // Only reset these values if we're at the start of the workout
+      if (progressPosition == 0) {
+        _totalDistance = 0;
+        _lastAltitude = 100.0;
+        _totalAscent = 0;
+        actualPowerPoints = {};
+        elapsedSeconds = 0;
+        trackPoints.clear();
+        _workoutStartTime = DateTime.now();
+      }
       startProgress();
-      actualPowerPoints = {};
-      elapsedSeconds = 0;
     } else {
       progressTimer?.cancel();
       // Reset simulation parameters when stopping
@@ -200,9 +205,13 @@ class WorkoutController extends ChangeNotifier {
 
   void startProgress() {
     progressTimer?.cancel();
-    _workoutStartTime = DateTime.now();
-    _lastTrackPointTime = _workoutStartTime;
-    trackPoints.clear();
+    
+    // Only initialize these if we're at the start of the workout
+    if (progressPosition == 0) {
+      _workoutStartTime = DateTime.now();
+      _lastTrackPointTime = _workoutStartTime;
+      trackPoints.clear();
+    }
 
     progressTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
       progressPosition += 0.1 / totalDuration;
