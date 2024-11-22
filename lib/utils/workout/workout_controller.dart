@@ -83,6 +83,30 @@ class WorkoutController extends ChangeNotifier {
     }
   }
 
+  WorkoutSegment? get currentSegment {
+    if (segments.isEmpty) return null;
+    int totalTime = 0;
+    for (var segment in segments) {
+      totalTime += segment.duration;
+      if (totalTime > elapsedSeconds) {
+        return segment;
+      }
+    }
+    return segments.last;
+  }
+
+  int get currentSegmentElapsedSeconds {
+    if (segments.isEmpty) return 0;
+    int totalTime = 0;
+    for (var segment in segments) {
+      if (totalTime + segment.duration > elapsedSeconds) {
+        return elapsedSeconds - totalTime;
+      }
+      totalTime += segment.duration;
+    }
+    return 0;
+  }
+
   // Helper method to reset simulation parameters
   Future<void> _resetSimulationParameters() async {
     if (bleData.ftmsControlPointCharacteristic != null) {
@@ -205,7 +229,7 @@ class WorkoutController extends ChangeNotifier {
 
   void startProgress() {
     progressTimer?.cancel();
-    
+
     // Only initialize these if we're at the start of the workout
     if (progressPosition == 0) {
       _workoutStartTime = DateTime.now();
