@@ -4,6 +4,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'workout_controller.dart';
 import 'bike_shape_generator.dart';
+import 'gpx_to_fit.dart';
 
 class GpxFileExporter {
   static Future<List<TrackPoint>> generateBikeTrackPoints(List<TrackPoint> originalPoints) async {
@@ -82,7 +83,7 @@ ${bikeTrackPoints.map((point) => '''   <trkpt lat="${point.lat}" lon="${point.lo
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Export Workout'),
-          content: const Text('Would you like to export your workout as a GPX file?'),
+          content: const Text('Would you like to export your workout?'),
           actions: <Widget>[
             TextButton(
               child: const Text('NO'),
@@ -98,7 +99,7 @@ ${bikeTrackPoints.map((point) => '''   <trkpt lat="${point.lat}" lon="${point.lo
     );
 
     if (shouldExport == true) {
-      await exportGpxFile(context, workoutController);
+      await exportWorkoutFile(context, workoutController);
     }
 
     // Reset workout position to beginning
@@ -107,10 +108,10 @@ ${bikeTrackPoints.map((point) => '''   <trkpt lat="${point.lat}" lon="${point.lo
     }
   }
 
-  static Future<void> exportGpxFile(BuildContext context, WorkoutController workoutController) async {
+  static Future<void> exportWorkoutFile(BuildContext context, WorkoutController workoutController) async {
     try {
       final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
-      final fileName = 'workout_${timestamp}.gpx';
+      final gpxFileName = 'workout_${timestamp}.gpx';
       
       // Generate GPX content using collected track points
       final gpxContent = await generateGpxContent(
@@ -144,44 +145,60 @@ ${bikeTrackPoints.map((point) => '''   <trkpt lat="${point.lat}" lon="${point.lo
         await workoutsDir.create(recursive: true);
       }
 
-      // Save the file
-      final file = File('${workoutsDir.path}${Platform.pathSeparator}$fileName');
-      await file.writeAsString(gpxContent);
+      // Save the GPX file temporarily
+      final gpxFile = File('${workoutsDir.path}${Platform.pathSeparator}$gpxFileName');
+      await gpxFile.writeAsString(gpxContent);
 
-      if (context.mounted) {
-        final bool? shouldShare = await showDialog<bool>(
-          context: context,
-          builder: (BuildContext context) {
-            return AlertDialog(
-              title: const Text('Workout Exported'),
-              content: Text('File saved to: ${file.path}\n\nWould you like to share it now?'),
-              actions: <Widget>[
-                TextButton(
-                  child: const Text('NO'),
-                  onPressed: () => Navigator.of(context).pop(false),
-                ),
-                TextButton(
-                  child: const Text('YES'),
-                  onPressed: () => Navigator.of(context).pop(true),
-                ),
-              ],
-            );
-          },
-        );
+      try {
+        // Convert GPX to FIT
+        final fitFilePath = await GpxToFitConverter.convertAndCleanup(gpxFile.path);
 
-        if (shouldShare == true) {
-          try {
-            await Share.shareXFiles([XFile(file.path)]);
-          } catch (e) {
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Failed to share file: $e'),
-                  backgroundColor: Colors.red,
-                ),
+        if (context.mounted) {
+          final bool? shouldShare = await showDialog<bool>(
+            context: context,
+            builder: (BuildContext context) {
+              return AlertDialog(
+                title: const Text('Workout Exported'),
+                content: Text('File saved to: $fitFilePath\n\nWould you like to share it now?'),
+                actions: <Widget>[
+                  TextButton(
+                    child: const Text('NO'),
+                    onPressed: () => Navigator.of(context).pop(false),
+                  ),
+                  TextButton(
+                    child: const Text('YES'),
+                    onPressed: () => Navigator.of(context).pop(true),
+                  ),
+                ],
               );
+            },
+          );
+
+          if (shouldShare == true) {
+            try {
+              await Share.shareXFiles([XFile(fitFilePath)]);
+            } catch (e) {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Failed to share file: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
             }
           }
+        }
+      } catch (e) {
+        // If FIT conversion fails, fall back to sharing GPX
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to convert to FIT format: $e\nSharing GPX file instead.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          await Share.shareXFiles([XFile(gpxFile.path)]);
         }
       }
     } catch (e) {
