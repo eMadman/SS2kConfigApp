@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:xml/xml.dart';
 
 enum SegmentType {

@@ -4,7 +4,6 @@ import 'dart:math' as math;
 import '../bledata.dart';
 import '../ftmsControlPoint.dart';
 import 'workout_parser.dart';
-import 'workout_constants.dart';
 import 'workout_storage.dart';
 import 'sounds.dart';
 
@@ -214,8 +213,8 @@ class WorkoutController extends ChangeNotifier {
       actualPowerPoints[elapsedSeconds] = currentPower;
 
       // Calculate speed (m/s) from power
-      double speedKmh = currentPower > 0 ? math.pow(currentPower / 0.125, 1 / 3).toDouble() : 0;
-      double speedMps = speedKmh / 3.6; // Convert km/h to m/s
+      double speedMph = currentPower > 0 ? 2.418 * math.pow(currentPower, 0.394) : 0;
+      double speedMps = speedMph * 0.44704; // Convert mph to m/s
 
       // Update total distance (in meters)
       _totalDistance += speedMps * 0.1; // 0.1 seconds worth of distance

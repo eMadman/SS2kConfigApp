@@ -10,7 +10,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import './bledata.dart';
 import './snackbar.dart';
-import './extra.dart';
 
 class PresetManager {
   static Future<void> savePreset(BuildContext context, BLEData bleData, String presetName) async {

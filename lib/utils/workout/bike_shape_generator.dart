@@ -1,7 +1,6 @@
 import 'package:flutter/services.dart' show rootBundle;
 import 'dart:math';
 import 'package:xml/xml.dart';
-import 'package:path/path.dart' as path;
 
 class BikeShapeGenerator {
   static List<({double lat, double lon})>? _bikeShapePoints;

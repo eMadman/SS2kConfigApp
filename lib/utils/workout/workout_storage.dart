@@ -1,10 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'workout_parser.dart';
-import 'workout_painter.dart';
-import 'dart:ui' as ui;
-import 'package:flutter/rendering.dart';
 
 class WorkoutStorage {
   static const String _ftpKey = 'workout_ftp_value';
