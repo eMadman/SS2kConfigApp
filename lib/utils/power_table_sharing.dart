@@ -68,7 +68,7 @@ class PowerTableSharing {
   // Export power table as .ptab file
   static Future<void> exportPowerTable(BuildContext context, BLEData bleData, String fileName) async {
     try {
-      final directory = await getTemporaryDirectory();
+      final directory = await getApplicationDocumentsDirectory();
       final String filePath = '${directory.path}/$fileName.ptab';
       
       // Convert power table to CSV and save to temporary file
@@ -120,8 +120,7 @@ class PowerTableSharing {
     try {
       // Pick file
       FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['ptab'],
+        type: FileType.any,
       );
 
       if (result == null || !context.mounted) return;
