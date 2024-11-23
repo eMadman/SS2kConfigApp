@@ -177,3 +177,8 @@ class WorkoutZones {
   /// Neuromuscular zone (> 120% FTP)
   static const double neuromuscular = 1.50;
 }
+
+  // Default cooldown values (70% to 50% FTP)
+const double defaultCooldownStart = 0.70;
+const double defaultCooldownEnd = 0.50;
+

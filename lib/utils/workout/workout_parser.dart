@@ -1,4 +1,5 @@
 import 'package:xml/xml.dart';
+import 'workout_constants.dart';
 
 enum SegmentType {
   steadyState,
@@ -103,6 +104,13 @@ class WorkoutSegment {
     if (!isRamp) return powerLow;
     
     final progress = secondsFromStart / duration;
+    
+    // For cooldowns, we want to start at powerHigh and end at powerLow
+    if (type == SegmentType.cooldown) {
+      return powerHigh - (powerHigh - powerLow) * progress;
+    }
+    
+    // For all other segments, start at powerLow and end at powerHigh
     return powerLow + (powerHigh - powerLow) * progress;
   }
 
@@ -278,8 +286,16 @@ class WorkoutParser {
       powerLow = _getZonePower(zone, high: false);
       powerHigh = _getZonePower(zone, high: true);
     } else {
-      powerLow = double.parse(element.getAttribute('PowerLow') ?? '0');
-      powerHigh = double.parse(element.getAttribute('PowerHigh') ?? '0');
+      // For cooldowns, if no power values are specified, use defaults
+      if (segmentType == SegmentType.cooldown && 
+          element.getAttribute('PowerLow') == null && 
+          element.getAttribute('PowerHigh') == null) {
+        powerLow = defaultCooldownEnd;    // End at 50% FTP
+        powerHigh = defaultCooldownStart; // Start at 70% FTP
+      } else {
+        powerLow = double.parse(element.getAttribute('PowerLow') ?? '0');
+        powerHigh = double.parse(element.getAttribute('PowerHigh') ?? '0');
+      }
     }
     
     return WorkoutSegment(
