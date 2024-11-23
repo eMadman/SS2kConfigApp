@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../utils/workout/workout_storage.dart';
 import '../utils/workout/workout_constants.dart';
+import '../utils/workout/workout_parser.dart';
 
 class WorkoutLibrary extends StatelessWidget {
   final bool selectionMode; // true for selection, false for deletion
@@ -68,8 +69,31 @@ class _WorkoutTile extends StatelessWidget {
     this.onDeleted,
   });
 
+  String _formatDuration(int seconds) {
+    final hours = seconds ~/ 3600;
+    final minutes = (seconds % 3600) ~/ 60;
+    return hours > 0 ? '${hours}h ${minutes}m' : '${minutes}m';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final workoutData = WorkoutParser.parseZwoFile(content);
+    int totalTime = 0;
+    double normalizedWork = 0;
+    double ftpValue = 200; // Default FTP value for thumbnail calculations
+
+    for (var segment in workoutData.segments) {
+      totalTime += segment.duration;
+      if (segment.isRamp) {
+        normalizedWork += segment.duration * ((segment.powerLow + segment.powerHigh) / 2) * ftpValue;
+      } else {
+        normalizedWork += segment.duration * segment.powerLow * ftpValue;
+      }
+    }
+
+    final intensityFactor = (normalizedWork / totalTime) / ftpValue;
+    final tss = (totalTime * intensityFactor * intensityFactor) / 36;
+
     return Card(
       margin: EdgeInsets.only(bottom: WorkoutPadding.standard),
       child: InkWell(
@@ -106,6 +130,13 @@ class _WorkoutTile extends StatelessWidget {
                     Text(
                       name,
                       style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    SizedBox(height: WorkoutSpacing.xsmall),
+                    Text(
+                      '${_formatDuration(totalTime)} • TSS ${tss.toStringAsFixed(0)}',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).textTheme.bodySmall?.color,
+                      ),
                     ),
                   ],
                 ),
