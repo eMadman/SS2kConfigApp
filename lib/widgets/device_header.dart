@@ -12,6 +12,7 @@ import '../utils/snackbar.dart';
 import '../utils/extra.dart';
 import '../utils/bledata.dart';
 import '../utils/power_table_management.dart';
+import '../utils/presets.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../utils/constants.dart';
 
@@ -165,8 +166,12 @@ class _DeviceHeaderState extends State<DeviceHeader> {
     }
   }
 
+
   Future onPowerTablePressed() async {
     await PowerTableManager.showPowerTableMenu(context, bleData, widget.device);
+ }
+  Future onPresetsPressed() async {
+    await PresetManager.showPresetsMenu(context, bleData, widget.device);
   }
 
   Future onRebootPressed() async {
@@ -259,6 +264,7 @@ class _DeviceHeaderState extends State<DeviceHeader> {
           _buildActionButton('Reboot SS2k', FontAwesomeIcons.arrowRotateRight, onRebootPressed),
           _buildActionButton('Set Defaults', FontAwesomeIcons.arrowRotateLeft, onResetPressed),
           _buildActionButton('Manage PowerTable', FontAwesomeIcons.table, onPowerTablePressed),
+          _buildActionButton('Presets', FontAwesomeIcons.sliders, onPresetsPressed),
         ]),
         crossFadeState: _isExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
         duration: Duration(milliseconds: 500),

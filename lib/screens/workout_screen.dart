@@ -1,591 +1,494 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_blue_plus/flutter_blue_plus.dart';
-import 'package:file_picker/file_picker.dart';
-import 'dart:convert';
 import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
+import '../utils/workout/workout_painter.dart';
+import '../utils/workout/workout_metrics.dart';
+import '../utils/workout/workout_constants.dart';
+import '../utils/workout/workout_controller.dart';
+import '../utils/workout/workout_storage.dart';
+import '../utils/workout/sounds.dart';
+import '../utils/workout/gpx_file_exporter.dart';
+import '../utils/workout/workout_file_manager.dart';
+import '../utils/bledata.dart';
+import '../widgets/workout_library.dart';
+import '../utils/workout/workout_parser.dart';
 
 class WorkoutScreen extends StatefulWidget {
   final BluetoothDevice device;
-
   const WorkoutScreen({Key? key, required this.device}) : super(key: key);
 
   @override
-  _WorkoutScreenState createState() => _WorkoutScreenState();
+  State<WorkoutScreen> createState() => _WorkoutScreenState();
 }
 
-class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProviderStateMixin {
-  List<Map<String, dynamic>> ergBlocks = [
-{'duration': 10, 'target': 0.5, 'messages': []},
-{'duration': 10, 'target': 0.5222222222222223, 'messages': []},
-{'duration': 10, 'target': 0.5444444444444444, 'messages': []},
-{'duration': 10, 'target': 0.5666666666666667, 'messages': []},
-{'duration': 10, 'target': 0.5888888888888889, 'messages': []},
-{'duration': 10, 'target': 0.6111111111111112, 'messages': []},
-{'duration': 10, 'target': 0.6333333333333333, 'messages': []},
-{'duration': 10, 'target': 0.6555555555555556, 'messages': []},
-{'duration': 10, 'target': 0.6777777777777778, 'messages': []},
-{'duration': 10, 'target': 0.7, 'messages': []},
-{'duration': 10, 'target': 0.7222222222222222, 'messages': []},
-{'duration': 10, 'target': 0.7444444444444445, 'messages': []},
-{'duration': 10, 'target': 0.7666666666666666, 'messages': []},
-{'duration': 10, 'target': 0.788888888888889, 'messages': []},
-{'duration': 10, 'target': 0.8111111111111111, 'messages': []},
-{'duration': 10, 'target': 0.8333333333333334, 'messages': []},
-{'duration': 10, 'target': 0.8555555555555556, 'messages': [{'time': 0.0, 'message': 'Nearly at threshold power now.'}]},
-{'duration': 10, 'target': 0.8777777777777778, 'messages': [{'time': 0.0, 'message': 'Time for the 4min threshold effort.'}]},
-{'duration': 10, 'target': 1.06, 'messages': []},
-{'duration': 10, 'target': 1.0716666666666668, 'messages': []},
-{'duration': 10, 'target': 1.0833333333333335, 'messages': [{'time': 0.0, 'message': 'The AC efforts step up in power slightly.'}]},
-{'duration': 10, 'target': 1.095, 'messages': []},
-{'duration': 10, 'target': 1.1066666666666667, 'messages': []},
-{'duration': 10, 'target': 1.1183333333333334, 'messages': []},
-{'duration': 10, 'target': 1.13, 'messages': []},
-{'duration': 10, 'target': 1.1416666666666666, 'messages': []},
-{'duration': 10, 'target': 1.1533333333333333, 'messages': []},
-{'duration': 10, 'target': 1.165, 'messages': []},
-{'duration': 10, 'target': 1.1766666666666667, 'messages': []},
-{'duration': 10, 'target': 1.1883333333333332, 'messages': []},
-{'duration': 10, 'target': 1.06, 'messages': []},
-{'duration': 10, 'target': 1.0716666666666668, 'messages': []},
-{'duration': 10, 'target': 1.0833333333333335, 'messages': []},
-{'duration': 10, 'target': 1.095, 'messages': []},
-{'duration': 10, 'target': 1.1066666666666667, 'messages': []},
-{'duration': 10, 'target': 1.1183333333333334, 'messages': []},
-{'duration': 10, 'target': 1.13, 'messages': []},
-{'duration': 10, 'target': 1.1416666666666666, 'messages': []},
-{'duration': 10, 'target': 1.1533333333333333, 'messages': []},
-{'duration': 10, 'target': 1.165, 'messages': []},
-{'duration': 10, 'target': 1.1766666666666667, 'messages': []},
-{'duration': 10, 'target': 1.1883333333333332, 'messages': []},
-{'duration': 10, 'target': 1.06, 'messages': []},
-{'duration': 10, 'target': 1.0716666666666668, 'messages': []},
-{'duration': 10, 'target': 1.0833333333333335, 'messages': []},
-{'duration': 10, 'target': 1.095, 'messages': [{'time': 0.0, 'message': 'Ensure you are holding good form on the bike. No rocking shoulders.'}]},
-{'duration': 10, 'target': 1.1066666666666667, 'messages': []},
-{'duration': 10, 'target': 1.1183333333333334, 'messages': []},
-{'duration': 10, 'target': 1.13, 'messages': []},
-{'duration': 10, 'target': 1.1416666666666666, 'messages': []},
-{'duration': 10, 'target': 1.1533333333333333, 'messages': []},
-{'duration': 10, 'target': 1.165, 'messages': []},
-{'duration': 10, 'target': 1.1766666666666667, 'messages': []},
-{'duration': 10, 'target': 1.1883333333333332, 'messages': []},
-{'duration': 10, 'target': 1.06, 'messages': []},
-{'duration': 10, 'target': 1.0716666666666668, 'messages': [{'time': 0.0, 'message': 'Aim to maintain the same cadence throughout the effort.'}]},
-{'duration': 10, 'target': 1.0833333333333335, 'messages': []},
-{'duration': 10, 'target': 1.095, 'messages': []},
-{'duration': 10, 'target': 1.1066666666666667, 'messages': []},
-{'duration': 10, 'target': 1.1183333333333334, 'messages': []},
-{'duration': 10, 'target': 1.13, 'messages': []},
-{'duration': 10, 'target': 1.1416666666666666, 'messages': []},
-{'duration': 10, 'target': 1.1533333333333333, 'messages': []},
-{'duration': 10, 'target': 1.165, 'messages': []},
-{'duration': 10, 'target': 1.1766666666666667, 'messages': []},
-{'duration': 10, 'target': 1.1883333333333332, 'messages': []},
-{'duration': 10, 'target': 1.06, 'messages': []},
-{'duration': 10, 'target': 1.0716666666666668, 'messages': []},
-{'duration': 10, 'target': 1.0833333333333335, 'messages': []},
-{'duration': 10, 'target': 1.095, 'messages': []},
-{'duration': 10, 'target': 1.1066666666666667, 'messages': []},
-{'duration': 10, 'target': 1.1183333333333334, 'messages': []},
-{'duration': 10, 'target': 1.13, 'messages': []},
-{'duration': 10, 'target': 1.1416666666666666, 'messages': []},
-{'duration': 10, 'target': 1.1533333333333333, 'messages': []},
-{'duration': 10, 'target': 1.165, 'messages': []},
-{'duration': 10, 'target': 1.1766666666666667, 'messages': []},
-{'duration': 10, 'target': 1.1883333333333332, 'messages': []},
-{'duration': 10, 'target': 1.21, 'messages': []},
-{'duration': 10, 'target': 1.2583333333333333, 'messages': [{'time': 0.0, 'message': 'Aim to hold a similar cadence to the earlier efforts.'}]},
-{'duration': 10, 'target': 1.3066666666666666, 'messages': []},
-{'duration': 10, 'target': 1.355, 'messages': []},
-{'duration': 10, 'target': 1.4033333333333333, 'messages': []},
-{'duration': 10, 'target': 1.4516666666666667, 'messages': []},
-{'duration': 10, 'target': 1.21, 'messages': []},
-{'duration': 10, 'target': 1.2583333333333333, 'messages': []},
-{'duration': 10, 'target': 1.3066666666666666, 'messages': []},
-{'duration': 10, 'target': 1.355, 'messages': []},
-{'duration': 10, 'target': 1.4033333333333333, 'messages': []},
-{'duration': 10, 'target': 1.4516666666666667, 'messages': []},
-{'duration': 10, 'target': 1.21, 'messages': []},
-{'duration': 10, 'target': 1.2583333333333333, 'messages': []},
-{'duration': 10, 'target': 1.3066666666666666, 'messages': []},
-{'duration': 10, 'target': 1.355, 'messages': []},
-{'duration': 10, 'target': 1.4033333333333333, 'messages': []},
-{'duration': 10, 'target': 1.4516666666666667, 'messages': []},
-{'duration': 60.0, 'target': 0.5, 'messages': [{'time': 50.0, 'message': 'Now for a 1min high power, effort.'}]},
-{'duration': 60.0, 'target': 1.09, 'messages': []},
-{'duration': 120.0, 'target': 0.5, 'messages': [{'time': 110.0, 'message': 'To prepare for the AC efforts we step up to a 4min threshold effort now.'}]},
-{'duration': 240.0, 'target': 0.9, 'messages': []},
-{'duration': 180.0, 'target': 0.5, 'messages': [{'time': 90.0, 'message': '4 x 2min efforts followed by 3 x 1min efforts, you will need to stay focused today!'}, {'time': 130.0, 'message': 'This is a very high level of intensity that requires mental and physical perseverance.'}]},
-{'duration': 120.0, 'target': 0.5, 'messages': [{'time': 30.0, 'message': 'A short recovery will improve your ability to repeat hard efforts.'}]},
-{'duration': 120.0, 'target': 0.5, 'messages': [{'time': 100.0, 'message': 'Just 3 more of these 2min efforts to go.'}]},
-{'duration': 120.0, 'target': 0.5, 'messages': [{'time': 100.0, 'message': '2 more to go. '}]},
-{'duration': 120.0, 'target': 0.5, 'messages': [{'time': 100.0, 'message': 'Last 2min effort!'}]},
-{'duration': 120.0, 'target': 0.5, 'messages': [{'time': 30.0, 'message': 'Just a short rest.'}, {'time': 90.0, 'message': 'In the next set, the efforts are short, but the power is higher.'}]},
-{'duration': 120.0, 'target': 0.5, 'messages': [{'time': 60.0, 'message': 'How did that feel? A little harder?'}, {'time': 100.0, 'message': 'Just 2 more efforts to go for the session!'}]},
-{'duration': 120.0, 'target': 0.5, 'messages': [{'time': 100.0, 'message': 'Last effort. Make it your best! '}]},
-{'duration': 120.0, 'target': 0.5, 'messages': [{'time': 60.0, 'message': 'Well done. That was a big session.'}]},
-{'duration': 10, 'target': 0.45, 'messages': []},
-{'duration': 10, 'target': 0.45833333333333337, 'messages': []},
-{'duration': 10, 'target': 0.4666666666666667, 'messages': []},
-{'duration': 10, 'target': 0.47500000000000003, 'messages': [{'time': 0.0, 'message': 'We begin the warm up with a gentle aerobic effort.'}]},
-{'duration': 10, 'target': 0.48333333333333334, 'messages': []},
-{'duration': 10, 'target': 0.4916666666666667, 'messages': []},
-{'duration': 10, 'target': 0.5, 'messages': []},
-{'duration': 10, 'target': 0.5083333333333333, 'messages': []},
-{'duration': 10, 'target': 0.5166666666666667, 'messages': []},
-{'duration': 10, 'target': 0.525, 'messages': []},
-{'duration': 10, 'target': 0.5333333333333333, 'messages': []},
-{'duration': 10, 'target': 0.5416666666666666, 'messages': []},
-{'duration': 10, 'target': 0.55, 'messages': []},
-{'duration': 10, 'target': 0.5583333333333333, 'messages': []},
-{'duration': 10, 'target': 0.5666666666666667, 'messages': []},
-{'duration': 10, 'target': 0.5833333333333334, 'messages': []},
-{'duration': 10, 'target': 0.5916666666666667, 'messages': []},
-{'duration': 10, 'target': 0.6, 'messages': []},
-{'duration': 10, 'target': 0.6083333333333334, 'messages': []},
-{'duration': 10, 'target': 0.6166666666666667, 'messages': []},
-{'duration': 10, 'target': 0.625, 'messages': []},
-{'duration': 10, 'target': 0.6333333333333333, 'messages': []},
-{'duration': 10, 'target': 0.6416666666666666, 'messages': []},
-{'duration': 10, 'target': 0.65, 'messages': []},
-{'duration': 10, 'target': 0.6583333333333333, 'messages': []},
-{'duration': 10, 'target': 0.6666666666666667, 'messages': []},
-{'duration': 10, 'target': 0.675, 'messages': []},
-{'duration': 10, 'target': 0.6833333333333333, 'messages': []},
-{'duration': 10, 'target': 0.6916666666666667, 'messages': []},
-{'duration': 10, 'target': 0.7, 'messages': []},
-{'duration': 10, 'target': 0.7083333333333333, 'messages': []},
-{'duration': 10, 'target': 0.7166666666666667, 'messages': []},
-{'duration': 10, 'target': 0.7250000000000001, 'messages': []},
-{'duration': 10, 'target': 0.7333333333333334, 'messages': []},
-{'duration': 10, 'target': 0.75, 'messages': []},
-{'duration': 10, 'target': 0.74, 'messages': []},
-{'duration': 10, 'target': 0.73, 'messages': []},
-{'duration': 10, 'target': 0.72, 'messages': []},
-{'duration': 10, 'target': 0.71, 'messages': []},
-{'duration': 10, 'target': 0.7, 'messages': []},
-{'duration': 10, 'target': 0.69, 'messages': []},
-{'duration': 10, 'target': 0.6799999999999999, 'messages': []},
-{'duration': 10, 'target': 0.67, 'messages': []},
-{'duration': 10, 'target': 0.66, 'messages': []},
-{'duration': 10, 'target': 0.65, 'messages': []},
-{'duration': 10, 'target': 0.64, 'messages': []},
-{'duration': 10, 'target': 0.63, 'messages': []},
-{'duration': 10, 'target': 0.62, 'messages': []},
-{'duration': 10, 'target': 0.61, 'messages': []},
-{'duration': 10, 'target': 0.6, 'messages': []},
-{'duration': 10, 'target': 0.59, 'messages': []},
-{'duration': 10, 'target': 0.58, 'messages': []},
-{'duration': 10, 'target': 0.5700000000000001, 'messages': []},
-{'duration': 10, 'target': 0.56, 'messages': []},
-{'duration': 10, 'target': 0.55, 'messages': []},
-{'duration': 10, 'target': 0.54, 'messages': []},
-{'duration': 10, 'target': 0.53, 'messages': []},
-{'duration': 10, 'target': 0.52, 'messages': []},
-{'duration': 10, 'target': 0.51, 'messages': []},
-{'duration': 10, 'target': 0.5, 'messages': []},
-{'duration': 10, 'target': 0.49, 'messages': []},
-{'duration': 10, 'target': 0.48, 'messages': []},
-{'duration': 10, 'target': 0.47, 'messages': []},
-{'duration': 10, 'target': 0.46, 'messages': []},
-  ];
+class WorkoutTextEventOverlay extends StatelessWidget {
+  final WorkoutSegment? currentSegment;
+  final int secondsIntoSegment;
+  final Animation<double> fadeAnimation;
 
-  int currentBlockIndex = 0;
-  bool isPlaying = false;
-  double ftp = 250.0;
-  double currentErgTarget = 0.0;
-  double currentWatts = 0.0;
-  double currentCadence = 0.0;
-  double currentHeartRate = 0.0;
-  double currentSpeed = 0.0;
-  double currentDistance = 0.0;
-  Duration currentBlockTimeRemaining = Duration.zero;
-  Duration totalTimeRemaining = Duration.zero;
-  Duration elapsedTime = Duration.zero;
-  double maxScrollExtent = 0;
-  String inspirationalMessage = '';
+  const WorkoutTextEventOverlay({
+    Key? key,
+    required this.currentSegment,
+    required this.secondsIntoSegment,
+    required this.fadeAnimation,
+  }) : super(key: key);
 
-  late StreamSubscription<BluetoothConnectionState> connectionStateSubscription;
-  late StreamSubscription<bool> isConnectingSubscription;
-  late StreamSubscription<bool> isDisconnectingSubscription;
-  Timer? _timer;
-  late AnimationController _animationController;
+  @override
+  Widget build(BuildContext context) {
+    if (currentSegment == null) return const SizedBox.shrink();
+
+    final visibleEvents = currentSegment!.getVisibleTextEventsAt(secondsIntoSegment);
+    if (visibleEvents.isEmpty) return const SizedBox.shrink();
+
+    return FadeTransition(
+      opacity: fadeAnimation,
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: Container(
+          margin: EdgeInsets.only(
+            top: WorkoutSpacing.medium * 4,
+            left: WorkoutPadding.standard,
+            right: WorkoutPadding.standard,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: visibleEvents.map((event) {
+              return Padding(
+                padding: EdgeInsets.symmetric(vertical: WorkoutSpacing.xsmall),
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: WorkoutPadding.standard,
+                    vertical: WorkoutPadding.small,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface.withOpacity(0.9),
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Opacity(
+                    opacity: event.getOpacityAt(secondsIntoSegment),
+                    child: Text(
+                      event.message,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateMixin {
+  String? _workoutName;
+  String? _currentWorkoutContent;
+  late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
-  late ScrollController _scrollController;
+  late BLEData bleData;
+  late WorkoutController _workoutController;
+  bool _refreshBlocker = false;
+  StreamSubscription<BluetoothConnectionState>? _connectionStateSubscription;
+  final ScrollController _scrollController = ScrollController();
+  double _lastScrollPosition = 0;
+  final GlobalKey _workoutGraphKey = GlobalKey();
+
+  late AnimationController _zoomController;
+  late Animation<double> _zoomAnimation;
+  static const double previewMinutes = 40;
+  static const double playingMinutes = 10;
+
+  // FTP wheel scroll controller
+  late final FixedExtentScrollController _ftpScrollController;
+  static const int minFTP = 50;
+  static const int maxFTP = 500;
+  static const int ftpStep = 1;
+  late int _selectedFTP;
 
   @override
   void initState() {
     super.initState();
-    _scrollController = ScrollController();
-    setupBleData();
-    totalTimeRemaining = ergBlocks.fold(Duration.zero, (total, block) {
-      return total + Duration(seconds: block['duration'].toInt());
-    });
-    currentBlockTimeRemaining = Duration(seconds: ergBlocks[0]['duration'].toInt());
-    _animationController = AnimationController(
-      duration: const Duration(seconds: 1),
+    WakelockPlus.enable();
+    bleData = BLEDataManager.forDevice(widget.device);
+    _workoutController = WorkoutController(bleData);
+    _selectedFTP = _workoutController.ftpValue.round();
+
+    _ftpScrollController = FixedExtentScrollController(
+      initialItem: (_selectedFTP - minFTP) ~/ ftpStep,
+    );
+
+    _fadeController = AnimationController(
+      duration: WorkoutDurations.fadeAnimation,
       vsync: this,
     );
-    _fadeAnimation = Tween(begin: 0.0, end: 1.0).animate(_animationController);
+    _fadeAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(_fadeController);
+
+    _zoomController = AnimationController(
+      duration: const Duration(milliseconds: 500),
+      vsync: this,
+    );
+    _zoomAnimation = Tween<double>(
+      begin: previewMinutes,
+      end: playingMinutes,
+    ).animate(CurvedAnimation(
+      parent: _zoomController,
+      curve: Curves.easeInOut,
+    ));
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _scrollToCurrentBlock();
+      rwSubscription();
+      _loadDefaultWorkout();
+    });
+
+    _workoutController.addListener(() {
+      if (_workoutController.isPlaying) {
+        _fadeController.forward();
+        _zoomController.forward();
+        _updateScrollPosition();
+      } else {
+        _fadeController.reverse();
+        _zoomController.reverse();
+        // Check if workout completed naturally (reached the end)
+        if (_workoutController.progressPosition >= 1.0) {
+          //reset progress position
+          _workoutController.progressPosition = 0;
+          // Add a small delay to ensure the workout end sound plays first
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              GpxFileExporter.showExportDialog(context, _workoutController, _currentWorkoutContent);
+            }
+          });
+        }
+      }
+      setState(() {
+        _workoutName = _workoutController.workoutName;
+        if (_selectedFTP != _workoutController.ftpValue.round()) {
+          _selectedFTP = _workoutController.ftpValue.round();
+          _ftpScrollController.jumpToItem((_selectedFTP - minFTP) ~/ ftpStep);
+        }
+      });
+    });
+
+    Timer.periodic(const Duration(seconds: 15), (refreshTimer) {
+      if (!widget.device.isConnected) {
+        try {
+          widget.device.connect();
+        } catch (e) {
+          print("failed to reconnect.");
+        }
+      } else {
+        if (!mounted) {
+          refreshTimer.cancel();
+        }
       }
     });
   }
 
-  void setupBleData() {
-    // Add your BLE setup and connection code here
+  Future<void> _loadDefaultWorkout() async {
+    try {
+      final content = await rootBundle.loadString('assets/Anthonys_Mix.zwo');
+      _workoutController.loadWorkout(content);
+      _currentWorkoutContent = content;
+      // Wait for the graph to be rendered
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      // Generate and save thumbnail for default workout
+      final thumbnail = await WorkoutFileManager.captureWorkoutThumbnail(_workoutGraphKey);
+      if (thumbnail != null) {
+        await WorkoutStorage.updateWorkoutThumbnail(WorkoutStorage.defaultWorkoutName, thumbnail);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading default workout: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
-  void loadZwoFile() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['zwo'],
+  Future<void> _showStopWorkoutDialog() async {
+    final bool? shouldStop = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('End Workout?'),
+          content: const Text('Do you want to end your workout?'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('NO'),
+              onPressed: () => Navigator.of(context).pop(false),
+            ),
+            TextButton(
+              child: const Text('YES'),
+              onPressed: () => Navigator.of(context).pop(true),
+            ),
+          ],
+        );
+      },
     );
 
-    if (result != null && result.files.isNotEmpty) {
-      PlatformFile file = result.files.first;
-      parseZwoFile(file);
+    if (shouldStop == true) {
+      await _workoutController.stopWorkout();
+      GpxFileExporter.showExportDialog(context, _workoutController, _currentWorkoutContent);
     }
   }
 
-  void parseZwoFile(PlatformFile file) {
-    final content = utf8.decode(file.bytes!); // Ensure file bytes are not null
-    // Parse the ZWO file content and populate the ergBlocks list
-    // This is a placeholder. Actual parsing logic will depend on ZWO file format.
-    setState(() {
-      ergBlocks = [
-        {'duration': 60.0, 'target': 0.6},
-        {'duration': 120.0, 'target': 0.8},
-        {'duration': 90.0, 'target': 1.0},
-        // Add more blocks as needed
-      ];
-      totalTimeRemaining = ergBlocks.fold(Duration.zero, (total, block) {
-        return total + Duration(seconds: block['duration'].toInt());
-      });
-      currentBlockTimeRemaining = Duration(seconds: ergBlocks[0]['duration'].toInt());
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _scrollToCurrentBlock();
-        }
-      });
-    });
-  }
+  void _updateScrollPosition() {
+    if (!mounted || !_scrollController.hasClients) return;
 
-  void playPauseWorkout() {
-    setState(() {
-      isPlaying = !isPlaying;
-      if (isPlaying) {
-        startTimer();
-      } else {
-        _timer?.cancel();
-      }
-    });
-  }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_workoutController.isPlaying && _scrollController.hasClients) {
+        final viewportWidth = _scrollController.position.viewportDimension;
+        final totalWidth = _scrollController.position.maxScrollExtent + viewportWidth;
+        final progressWidth = _workoutController.progressPosition * (totalWidth - (2 * WorkoutPadding.standard));
 
-  void startTimer() {
-    _timer = Timer.periodic(Duration(seconds: 1), (timer) {
-      setState(() {
-        if (currentBlockTimeRemaining.inSeconds > 0) {
-          currentBlockTimeRemaining -= Duration(seconds: 1);
-          currentErgTarget = ergBlocks[currentBlockIndex]['target'] * ftp;
-          checkForMessages();
-        } else {
-          if (currentBlockIndex < ergBlocks.length - 1) {
-            currentBlockIndex++;
-            currentBlockTimeRemaining = Duration(seconds: ergBlocks[currentBlockIndex]['duration'].toInt());
-            inspirationalMessage = '';
-          } else {
-            timer.cancel();
-            isPlaying = false;
-          }
-        }
-        elapsedTime += Duration(seconds: 1);
-        totalTimeRemaining -= Duration(seconds: 1);
-        if (mounted) {
-          _scrollToCurrentBlock();
-        }
-      });
-    });
-  }
+        final targetScroll = progressWidth - (viewportWidth / 2);
 
-  void checkForMessages() {
-    if (ergBlocks[currentBlockIndex].containsKey('messages')) {
-      List<dynamic> messages = ergBlocks[currentBlockIndex]['messages'];
-      for (var message in messages) {
-        if (ergBlocks[currentBlockIndex]['duration'] - currentBlockTimeRemaining.inSeconds == message['time']) {
-          setState(() {
-            inspirationalMessage = message['text'] != null ? message['text'] : "";
-            _animationController.forward(from: 0.0);
-          });
-          Timer(Duration(seconds: 10), () {
-            setState(() {
-              inspirationalMessage = '';
-            });
-          });
-        }
-      }
-    }
-  }
-
-  void _scrollToCurrentBlock() {
-    double offset = 0;
-    for (int i = 0; i < currentBlockIndex; i++) {
-      offset += ergBlocks[i]['duration'];
-    }
-    offset += ergBlocks[currentBlockIndex]['duration'] - currentBlockTimeRemaining.inSeconds;
-    maxScrollExtent = _scrollController.hasClients ? _scrollController.position.maxScrollExtent : 0;
-    double viewWidth = MediaQuery.of(context).size.width;
-
-    double targetOffset = offset - 100;
-
-    if (targetOffset > maxScrollExtent - viewWidth) {
-      targetOffset = maxScrollExtent - viewWidth + (offset - maxScrollExtent);
-    } else if (targetOffset < 0) {
-      targetOffset = offset;
-    }
-
-    if (_scrollController.hasClients) {
-      _scrollController.animateTo(
-        targetOffset,
-        duration: Duration(seconds: 1),
-        curve: Curves.linear,
-      );
-    }
-  }
-
-  void adjustFtp(double newFtp) {
-    setState(() {
-      ftp = newFtp;
-    });
-  }
-
-  void resetWorkout() {
-    setState(() {
-      currentBlockIndex = 0;
-      currentBlockTimeRemaining = Duration(seconds: ergBlocks[0]['duration'].toInt());
-      elapsedTime = Duration.zero;
-      totalTimeRemaining = ergBlocks.fold(Duration.zero, (total, block) {
-        return total + Duration(seconds: block['duration'].toInt());
-      });
-      if (isPlaying) {
-        _timer?.cancel();
-        startTimer();
-      }
-    });
-  }
-
-  void skipBlock() {
-    setState(() {
-      if (currentBlockIndex < ergBlocks.length - 1) {
-        currentBlockIndex++;
-        currentBlockTimeRemaining = Duration(seconds: ergBlocks[currentBlockIndex]['duration'].toInt());
-        if (isPlaying) {
-          _timer?.cancel();
-          startTimer();
+        if ((targetScroll - _lastScrollPosition).abs() > 1.0) {
+          _scrollController.animateTo(
+            targetScroll.clamp(0.0, _scrollController.position.maxScrollExtent),
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+          );
+          _lastScrollPosition = targetScroll;
         }
       }
     });
   }
 
-  Color getColorForErgTarget(double target) {
-    target = target * ftp; // Convert target percentage to watts
-    if (target >= ftp * 1.2) {
-      return Color.fromARGB(96, 251, 0, 255);
-    } else if (target >= ftp) {
-      return Colors.red;
-    } else if (target >= ftp * 0.8) {
-      return Colors.yellow;
-    } else if (target >= ftp * 0.6) {
-      return Colors.green;
-    } else {
-      return Colors.blue;
-    }
+  Future<void> rwSubscription() async {
+    _connectionStateSubscription = widget.device.connectionState.listen((state) async {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
+      bleData.isReadingOrWriting.addListener(_rwListener);
+    });
   }
 
-  void updateCurrentValues(double ergTarget, double watts, double cadence, double heartRate, double speed,
-      double distance, Duration blockTimeRemaining, Duration workoutTimeRemaining) {
-    setState(() {
-      currentErgTarget = ergTarget;
-      currentWatts = watts;
-      currentCadence = cadence;
-      currentHeartRate = heartRate;
-      currentSpeed = speed;
-      currentDistance = distance;
-      currentBlockTimeRemaining = blockTimeRemaining;
-      totalTimeRemaining = workoutTimeRemaining;
-    });
+  void _rwListener() async {
+    if (_refreshBlocker) return;
+    _refreshBlocker = true;
+    await Future.delayed(const Duration(microseconds: 500));
+
+    if (mounted) {
+      setState(() {});
+    }
+    _refreshBlocker = false;
   }
 
   @override
   void dispose() {
-    connectionStateSubscription.cancel();
-    isConnectingSubscription.cancel();
-    isDisconnectingSubscription.cancel();
-    _timer?.cancel();
-    _animationController.dispose();
+    WakelockPlus.disable();
+    _fadeController.dispose();
+    _zoomController.dispose();
+    _connectionStateSubscription?.cancel();
+    bleData.isReadingOrWriting.removeListener(_rwListener);
+    _workoutController.dispose();
     _scrollController.dispose();
+    _ftpScrollController.dispose();
+    workoutSoundGenerator.dispose();
+    if (_workoutController.progressPosition >= 1.0) {
+      WorkoutStorage.clearWorkoutState();
+    }
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text("Workout Screen"),
-      ),
-      body: Column(
-        children: [
-          SizedBox(height: 10),
-          ElevatedButton(
-            onPressed: loadZwoFile,
-            child: Text('Load .zwo File'),
-          ),
-          SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+  void _showWorkoutLibrary({required bool selectionMode}) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.8,
+          height: MediaQuery.of(context).size.height * 0.8,
+          padding: EdgeInsets.all(WorkoutPadding.standard),
+          child: Column(
             children: [
-              ElevatedButton(
-                onPressed: playPauseWorkout,
-                child: Text(isPlaying ? 'Pause' : 'Play'),
+              Text(
+                selectionMode ? 'Select Workout' : 'Delete Workout',
+                style: Theme.of(context).textTheme.headlineSmall,
               ),
-              SizedBox(width: 10),
-              ElevatedButton(
-                onPressed: resetWorkout,
-                child: Text('Reset'),
+              SizedBox(height: WorkoutSpacing.medium),
+              Expanded(
+                child: WorkoutLibrary(
+                  selectionMode: selectionMode,
+                  onWorkoutSelected: (content) {
+                    Navigator.pop(context);
+                    _workoutController.loadWorkout(content);
+                    _currentWorkoutContent = content;
+                  },
+                  onWorkoutDeleted: (name) async {
+                    await WorkoutStorage.deleteWorkout(name);
+                    if (mounted) {
+                      setState(() {});
+                    }
+                  },
+                ),
               ),
-              SizedBox(width: 10),
-              ElevatedButton(
-                onPressed: skipBlock,
-                child: Text('Skip Block'),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('CLOSE'),
               ),
             ],
           ),
-          SizedBox(height: 10),
-          Slider(
-            value: ftp,
-            min: 100,
-            max: 500,
-            divisions: 40,
-            label: ftp.round().toString(),
-            onChanged: (value) {
-              adjustFtp(value);
-            },
-          ),
-          Text('FTP: ${ftp.round()}'),
-          // Metrics Display
-          Expanded(
-            flex: 1,
-            child: Stack(
-              children: [
-                GridView.count(
-                  crossAxisCount: 3,
-                  childAspectRatio: 2.5,
-                  padding: EdgeInsets.all(8.0),
-                  children: [
-                    buildMetricCard('Power Lap', currentWatts.toInt().toString()),
-                    buildMetricCard('Power', currentWatts.toInt().toString() + 'w'),
-                    buildMetricCard('Interval Time', formatDuration(currentBlockTimeRemaining)),
-                    buildMetricCard('Heart Rate', currentHeartRate.toInt().toString()),
-                    buildMetricCard('Target', currentErgTarget.toInt().toString() + 'w'),
-                    buildMetricCard('Elapsed Time', formatDuration(elapsedTime)),
-                    buildMetricCard('Speed', currentSpeed.toStringAsFixed(1)),
-                    buildMetricCard('Cadence', currentCadence.toInt().toString()),
-                    buildMetricCard('Distance', currentDistance.toStringAsFixed(1)),
-                  ],
-                ),
-                Positioned(
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: FadeTransition(
-                      opacity: _fadeAnimation,
-                      child: Container(
-                        padding: EdgeInsets.all(8),
-                        color: Colors.white.withOpacity(0.8),
-                        child: Text(
-                          inspirationalMessage,
-                          style: TextStyle(color: Colors.black, fontSize: 20, fontWeight: FontWeight.bold),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWorkoutSummary() {
+    if (_workoutController.segments.isEmpty) return const SizedBox.shrink();
+
+    int totalTime = _workoutController.totalDuration.round();
+    double normalizedWork = 0;
+
+    for (var segment in _workoutController.segments) {
+      if (segment.isRamp) {
+        normalizedWork += segment.duration * ((segment.powerLow + segment.powerHigh) / 2) * _workoutController.ftpValue;
+      } else {
+        normalizedWork += segment.duration * segment.powerLow * _workoutController.ftpValue;
+      }
+    }
+
+    final intensityFactor = (normalizedWork / totalTime) / _workoutController.ftpValue;
+    final tss = (totalTime * intensityFactor * intensityFactor) / 36;
+
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: Card(
+        margin: EdgeInsets.all(WorkoutPadding.small),
+        child: Padding(
+          padding: EdgeInsets.all(WorkoutPadding.standard),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Workout Summary',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              SizedBox(height: WorkoutSpacing.xsmall),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _SummaryItem(
+                    label: 'Duration',
+                    value: _workoutController.formatDuration(totalTime),
+                    icon: Icons.timer,
                   ),
+                  _SummaryItem(
+                    label: 'TSS',
+                    value: tss.toStringAsFixed(1),
+                    icon: Icons.fitness_center,
+                  ),
+                  _SummaryItem(
+                    label: 'IF',
+                    value: intensityFactor.toStringAsFixed(2),
+                    icon: Icons.show_chart,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildControls() {
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: WorkoutPadding.small),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (_workoutController.isPlaying)
+                IconButton(
+                  icon: const Icon(Icons.stop_circle),
+                  iconSize: 48,
+                  onPressed: () => _showStopWorkoutDialog(),
                 ),
-              ],
-            ),
+              IconButton(
+                icon: Icon(_workoutController.isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled),
+                iconSize: 48,
+                onPressed: () {
+                  if (!_workoutController.isPlaying) {
+                    workoutSoundGenerator.playButtonSound();
+                  }
+                  _workoutController.togglePlayPause();
+                },
+              ),
+              if (_workoutController.isPlaying)
+                IconButton(
+                  icon: const Icon(Icons.skip_next),
+                  iconSize: 48,
+                  onPressed: _workoutController.skipToNextSegment,
+                ),
+            ],
           ),
-          // Progress Bar
-          Padding(
-            padding: const EdgeInsets.fromLTRB(1.0, 0.0, 1.0, 10.0),
-            child: LinearProgressIndicator(
-              value: (ergBlocks.isNotEmpty && currentBlockTimeRemaining.inSeconds > 0)
-                  ? currentBlockTimeRemaining.inSeconds / ergBlocks[currentBlockIndex]['duration']
-                  : 0,
-              minHeight: 20.0,
-              backgroundColor: Colors.white,
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.orange),
-            ),
-          ),
-          // ERG Target Preview
-          Expanded(
-            flex: 1,
-            child: Stack(
+          Positioned(
+            right: WorkoutPadding.standard,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                SingleChildScrollView(
-                  clipBehavior: Clip.none,
-                  physics: AlwaysScrollableScrollPhysics(),
-                  scrollDirection: Axis.horizontal,
-                  controller: _scrollController,
-                  child: Row(
-                    children: ergBlocks.asMap().entries.map((entry) {
-                      int index = entry.key;
-                      Map<String, dynamic> block = entry.value;
-                      final color = getColorForErgTarget(block['target']);
-                      return AnimatedBuilder(
-                        animation: _animationController,
-                        builder: (context, child) {
-                          return Container(
-                            width: block['duration'].toDouble(),
-                            alignment: Alignment.bottomLeft,
-                            child: Container(
-                              width: block['duration'].toDouble(),
-                              height: (block['target'] * 100),
-                              color: color,
-                              margin: EdgeInsets.symmetric(horizontal: 0),
-                              child: Center(
-                                child: Text(
-                                  '${(block['target'] * ftp).toInt()} W',
-                                  style: TextStyle(color: Colors.white, fontSize: 10),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                              foregroundDecoration: index == currentBlockIndex
-                                  ? BoxDecoration(
-                                      color: Colors.black.withOpacity(0.2 * _animationController.value),
-                                    )
-                                  : null,
+                const Text('FTP: '),
+                SizedBox(
+                  width: 80,
+                  height: 220,
+                  child: ListWheelScrollView.useDelegate(
+                    controller: _ftpScrollController,
+                    useMagnifier: true,
+                    magnification: 1.3,
+                    clipBehavior: Clip.none,
+                    overAndUnderCenterOpacity: .2,
+                    itemExtent: 40,
+                    perspective: 0.01,
+                    diameterRatio: 2,
+                    physics: const FixedExtentScrollPhysics(),
+                    onSelectedItemChanged: (index) {
+                      setState(() {
+                        _selectedFTP = minFTP + (index * ftpStep);
+                        _workoutController.updateFTP(_selectedFTP.toDouble());
+                      });
+                    },
+                    childDelegate: ListWheelChildBuilderDelegate(
+                      childCount: ((maxFTP - minFTP) ~/ ftpStep) + 1,
+                      builder: (context, index) {
+                        final value = minFTP + (index * ftpStep);
+                        return Container(
+                          alignment: Alignment.center,
+                          child: Text(
+                            value.toString(),
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: value == _selectedFTP ? FontWeight.bold : FontWeight.normal,
                             ),
-                          );
-                        },
-                      );
-                    }).toList(),
-                  ),
-                ),
-                Positioned(
-                  top: 10,
-                  right: 10,
-                  child: Container(
-                    padding: EdgeInsets.all(8),
-                    color: Colors.black.withOpacity(0.5),
-                    child: Text(
-                      '${currentBlockIndex + 1}/${ergBlocks.length}',
-                      style: TextStyle(color: Colors.white, fontSize: 16),
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ),
+                const Text('W'),
               ],
             ),
           ),
@@ -594,33 +497,187 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
     );
   }
 
-  Widget buildMetricCard(String title, String value) {
-    return Card(
-      color: Colors.black54,
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              title,
-              style: TextStyle(color: Colors.white, fontSize: 12),
-            ),
-            SizedBox(height: 8),
-            Text(
-              value,
-              style: TextStyle(color: Colors.white, fontSize: 24),
-            ),
-          ],
-        ),
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(_workoutName ?? ''),
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              switch (value) {
+                case 'import':
+                  WorkoutFileManager.pickAndLoadWorkout(
+                    context: context,
+                    workoutController: _workoutController,
+                    workoutGraphKey: _workoutGraphKey,
+                    onWorkoutLoaded: (content) {
+                      _currentWorkoutContent = content;
+                    },
+                  );
+                  break;
+                case 'select':
+                  _showWorkoutLibrary(selectionMode: true);
+                  break;
+                case 'delete':
+                  _showWorkoutLibrary(selectionMode: false);
+                  break;
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'import',
+                child: Row(
+                  children: [
+                    Icon(Icons.file_upload),
+                    SizedBox(width: 8),
+                    Text('Import ZWO'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'select',
+                child: Row(
+                  children: [
+                    Icon(Icons.folder_open),
+                    SizedBox(width: 8),
+                    Text('Select Workout'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete),
+                    SizedBox(width: 8),
+                    Text('Delete Workout'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Stack(
+            children: [
+              _buildWorkoutSummary(),
+              WorkoutMetrics(
+                bleData: bleData,
+                fadeAnimation: _fadeAnimation,
+                elapsedTime: _workoutController.elapsedSeconds,
+                timeToNextSegment: _workoutController.currentSegmentTimeRemaining,
+              ),
+              // Add this new widget
+              WorkoutTextEventOverlay(
+                currentSegment: _workoutController.currentSegment,
+                secondsIntoSegment: _workoutController.currentSegmentElapsedSeconds,
+                fadeAnimation: _fadeAnimation,
+              ),
+            ],
+          ),
+          Expanded(
+            child: _workoutController.segments.isEmpty
+                ? const Center(child: CircularProgressIndicator())
+                : AnimatedBuilder(
+                    animation: _zoomAnimation,
+                    builder: (context, child) {
+                      return LayoutBuilder(
+                        builder: (context, constraints) {
+                          final minutesWidth = constraints.maxWidth / _zoomAnimation.value;
+                          final totalWidth = _workoutController.totalDuration / 60 * minutesWidth;
+
+                          return SingleChildScrollView(
+                            controller: _scrollController,
+                            scrollDirection: Axis.horizontal,
+                            child: RepaintBoundary(
+                              key: _workoutGraphKey,
+                              child: SizedBox(
+                                width: totalWidth,
+                                child: Stack(
+                                  children: [
+                                    Padding(
+                                      padding: EdgeInsets.all(WorkoutPadding.standard),
+                                      child: Column(
+                                        children: [
+                                          Expanded(
+                                            child: CustomPaint(
+                                              painter: WorkoutPainter(
+                                                segments: _workoutController.segments,
+                                                maxPower: _workoutController.maxPower,
+                                                totalDuration: _workoutController.totalDuration,
+                                                ftpValue: _workoutController.ftpValue,
+                                                currentProgress: _workoutController.progressPosition,
+                                                actualPowerPoints: _workoutController.actualPowerPoints,
+                                                currentPower: _workoutController.isPlaying
+                                                    ? bleData.ftmsData.watts.toDouble()
+                                                    : null,
+                                              ),
+                                              child: Container(),
+                                            ),
+                                          ),
+                                          SizedBox(height: WorkoutSpacing.medium),
+                                        ],
+                                      ),
+                                    ),
+                                    if (_workoutController.isPlaying)
+                                      Positioned(
+                                        left: _workoutController.progressPosition *
+                                                (totalWidth - (2 * WorkoutPadding.standard)) +
+                                            WorkoutPadding.standard,
+                                        top: WorkoutPadding.standard,
+                                        bottom: WorkoutSpacing.medium + WorkoutPadding.standard,
+                                        child: Container(
+                                          width: WorkoutSizes.progressIndicatorWidth,
+                                          color: const Color.fromARGB(255, 0, 0, 0)
+                                              .withOpacity(WorkoutOpacity.segmentBorder),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+          ),
+          _buildControls(),
+        ],
       ),
     );
   }
+}
 
-  String formatDuration(Duration duration) {
-    String twoDigits(int n) => n.toString().padLeft(2, '0');
-    final hours = twoDigits(duration.inHours);
-    final minutes = twoDigits(duration.inMinutes.remainder(60));
-    final seconds = twoDigits(duration.inSeconds.remainder(60));
-    return "$hours:$minutes:$seconds";
+class _SummaryItem extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+
+  const _SummaryItem({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Icon(icon, size: 24),
+        SizedBox(height: WorkoutSpacing.xxsmall),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
+    );
   }
 }
