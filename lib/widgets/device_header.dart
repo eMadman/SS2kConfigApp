@@ -11,6 +11,7 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import '../utils/snackbar.dart';
 import '../utils/extra.dart';
 import '../utils/bledata.dart';
+import '../utils/power_table_management.dart';
 import '../utils/presets.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../utils/constants.dart';
@@ -165,6 +166,10 @@ class _DeviceHeaderState extends State<DeviceHeader> {
     }
   }
 
+
+  Future onPowerTablePressed() async {
+    await PowerTableManager.showPowerTableMenu(context, bleData, widget.device);
+ }
   Future onPresetsPressed() async {
     await PresetManager.showPresetsMenu(context, bleData, widget.device);
   }
@@ -187,15 +192,6 @@ class _DeviceHeaderState extends State<DeviceHeader> {
       Snackbar.show(ABC.c, "SmartSpin2k has been reset to defaults", success: true);
     } catch (e) {
       Snackbar.show(ABC.c, prettyException("Reset Failed ", e), success: false);
-    }
-  }
-
-  Future onResetPowerTablePressed() async {
-    try {
-      await this.bleData.resetPowerTable(this.widget.device);
-      Snackbar.show(ABC.c, "The Power Table has been deleted.", success: true);
-    } catch (e) {
-      Snackbar.show(ABC.c, prettyException("Reset Power Table Failed ", e), success: false);
     }
   }
 
@@ -267,7 +263,7 @@ class _DeviceHeaderState extends State<DeviceHeader> {
           _buildActionButton('Refresh', FontAwesomeIcons.rotate, onDiscoverServicesPressed),
           _buildActionButton('Reboot SS2k', FontAwesomeIcons.arrowRotateRight, onRebootPressed),
           _buildActionButton('Set Defaults', FontAwesomeIcons.arrowRotateLeft, onResetPressed),
-          _buildActionButton('Clear Powertable', FontAwesomeIcons.xmark, onResetPowerTablePressed),
+          _buildActionButton('Manage PowerTable', FontAwesomeIcons.table, onPowerTablePressed),
           _buildActionButton('Presets', FontAwesomeIcons.sliders, onPresetsPressed),
         ]),
         crossFadeState: _isExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
