@@ -11,7 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import './bledata.dart';
 import './snackbar.dart';
-//import './power_table_sharing.dart';
+import './power_table_sharing.dart';
 
 class PowerTableManager {
   static const String _powerTablesListKey = 'power_tables_list';
@@ -353,7 +353,7 @@ class PowerTableManager {
                   Navigator.of(context).pop('test');
                 },
               ),
-              /*ListTile(
+              ListTile(
                 leading: Icon(Icons.share),
                 title: Text('Export PowerTable'),
                 onTap: () {
@@ -367,7 +367,7 @@ class PowerTableManager {
                   Navigator.of(context).pop('import');
                 },
                 
-              ),*/
+              ),
             ],
           ),
         );
@@ -420,7 +420,7 @@ class PowerTableManager {
       case 'test':
         loadTestData(context, bleData, device);
         break;
-    /*  case 'export':
+      case 'export':
         final nameController = TextEditingController();
         final fileName = await showDialog<String>(
           context: context,
@@ -453,7 +453,7 @@ class PowerTableManager {
         break;
       case 'import':
         await PowerTableSharing.importPowerTable(context, bleData);
-        break;*/
+        break;
     }
   }
 }
