@@ -15,24 +15,48 @@ class AudioCoachDialog extends StatefulWidget {
 
 class _AudioCoachDialogState extends State<AudioCoachDialog> {
   List<String> _voices = [];
+  List<String> _engines = [];
   bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadVoices();
+    _loadVoicesAndEngines();
   }
 
-  Future<void> _loadVoices() async {
+  Future<void> _loadVoicesAndEngines() async {
+    if (widget.ttsSettings.isAndroid) {
+      final engines = await widget.ttsSettings.getAvailableEngines();
+      setState(() {
+        _engines = engines.toSet().toList();
+      });
+    }
+    
     final voices = await widget.ttsSettings.getAvailableVoices();
     setState(() {
-      _voices = voices;
+      _voices = voices.toSet().toList();
       _loading = false;
     });
   }
 
   Future<void> _testVoice() async {
     await widget.ttsSettings.speakTest("This is a test of the audio coach voice.");
+  }
+
+  String? _getValidVoice() {
+    final currentVoice = widget.ttsSettings.voice;
+    if (currentVoice != null && _voices.contains(currentVoice)) {
+      return currentVoice;
+    }
+    return _voices.isNotEmpty ? _voices.first : null;
+  }
+
+  String? _getValidEngine() {
+    final currentEngine = widget.ttsSettings.engine;
+    if (currentEngine != null && _engines.contains(currentEngine)) {
+      return currentEngine;
+    }
+    return _engines.isNotEmpty ? _engines.first : null;
   }
 
   @override
@@ -99,13 +123,49 @@ class _AudioCoachDialogState extends State<AudioCoachDialog> {
                   divisions: 15,
                   label: '${(widget.ttsSettings.pitch * 100).round()}%',
                 ),
+                if (widget.ttsSettings.isAndroid) ...[
+                  const SizedBox(height: 16),
+                  const Text('Select Speech Engine'),
+                  if (_loading)
+                    const Center(child: CircularProgressIndicator())
+                  else if (_engines.isEmpty)
+                    const Text('No engines available')
+                  else
+                    DropdownButton<String>(
+                      value: _getValidEngine(),
+                      isExpanded: true,
+                      hint: const Text('Select an engine'),
+                      items: _engines.map((engine) {
+                        return DropdownMenuItem(
+                          value: engine,
+                          child: Text(engine),
+                        );
+                      }).toList(),
+                      onChanged: (value) async {
+                        if (value != null) {
+                          await widget.ttsSettings.setEngine(value);
+                          setState(() {
+                            _loading = true;
+                            _voices = [];
+                          });
+                          final voices = await widget.ttsSettings.getAvailableVoices();
+                          setState(() {
+                            _voices = voices.toSet().toList();
+                            _loading = false;
+                          });
+                        }
+                      },
+                    ),
+                ],
                 const SizedBox(height: 16),
                 const Text('Select Voice'),
                 if (_loading)
                   const Center(child: CircularProgressIndicator())
+                else if (_voices.isEmpty)
+                  const Text('No voices available')
                 else
                   DropdownButton<String>(
-                    value: widget.ttsSettings.voice,
+                    value: _getValidVoice(),
                     isExpanded: true,
                     hint: const Text('Select a voice'),
                     items: _voices.map((voice) {

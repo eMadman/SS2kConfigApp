@@ -9,6 +9,7 @@ class WorkoutTTSSettings {
   static const String _volumeKey = 'workout_tts_volume';
   static const String _pitchKey = 'workout_tts_pitch';
   static const String _rateKey = 'workout_tts_rate';
+  static const String _engineKey = 'workout_tts_engine';
 
   final FlutterTts _flutterTts = FlutterTts();
   final SharedPreferences _prefs;
@@ -16,6 +17,7 @@ class WorkoutTTSSettings {
   
   bool _enabled;
   String? _voice;
+  String? _engine;
   double _volume;
   double _pitch;
   double _rate;
@@ -26,6 +28,7 @@ class WorkoutTTSSettings {
   WorkoutTTSSettings._(this._prefs)
       : _enabled = _prefs.getBool(_enabledKey) ?? true,
         _voice = _prefs.getString(_voiceKey),
+        _engine = _prefs.getString(_engineKey),
         _volume = _prefs.getDouble(_volumeKey) ?? 1.0,
         _pitch = _prefs.getDouble(_pitchKey) ?? 1.0,
         _rate = _prefs.getDouble(_rateKey) ?? 0.5;
@@ -39,6 +42,10 @@ class WorkoutTTSSettings {
 
   Future<void> _initTts() async {
     try {
+      if (isAndroid && _engine != null) {
+        await _flutterTts.setEngine(_engine!);
+      }
+      
       await _flutterTts.setLanguage("en-US");
       if (isIOS) {
         await _flutterTts.setIosAudioCategory(
@@ -58,7 +65,11 @@ class WorkoutTTSSettings {
           orElse: () => null,
         );
         if (selectedVoice != null) {
-          await _flutterTts.setVoice(selectedVoice);
+          final voiceMap = Map<String, String>.from({
+            'name': selectedVoice['name']?.toString() ?? '',
+            'locale': selectedVoice['locale']?.toString() ?? 'en-US',
+          });
+          await _flutterTts.setVoice(voiceMap);
         }
       }
     } catch (e) {
@@ -68,6 +79,7 @@ class WorkoutTTSSettings {
 
   bool get enabled => _enabled;
   String? get voice => _voice;
+  String? get engine => _engine;
   double get volume => _volume;
   double get pitch => _pitch;
   double get rate => _rate;
@@ -80,21 +92,53 @@ class WorkoutTTSSettings {
     }
   }
 
-  Future<void> setVoice(String value) async {
+  Future<void> setEngine(String value) async {
+    try {
+      await _flutterTts.setEngine(value);
+      _engine = value;
+      await _prefs.setString(_engineKey, value);
+      
+      // After changing engine, we need to reinitialize TTS settings
+      await _initTts();
+      
+      // Test the engine change
+      await speakTest("Engine changed to $value");
+    } catch (e) {
+      print('Error setting engine: $e');
+    }
+  }
+
+  Future<List<String>> getAvailableEngines() async {
+    if (!isAndroid) return [];
+    try {
+      final engines = await _flutterTts.getEngines;
+      return engines.cast<String>();
+    } catch (e) {
+      print('Error getting available engines: $e');
+      return [];
+    }
+  }
+
+  Future<void> setVoice(String voiceName) async {
     try {
       final voices = await _flutterTts.getVoices;
       final selectedVoice = (voices as List).firstWhere(
-        (voice) => voice['name'] == value,
+        (voice) => voice['name'] == voiceName,
         orElse: () => null,
       );
       
       if (selectedVoice != null) {
-        await _flutterTts.setVoice(selectedVoice);
-        _voice = value;
-        await _prefs.setString(_voiceKey, value);
+        final voiceMap = Map<String, String>.from({
+          'name': selectedVoice['name']?.toString() ?? '',
+          'locale': selectedVoice['locale']?.toString() ?? 'en-US',
+        });
+        
+        await _flutterTts.setVoice(voiceMap);
+        _voice = voiceName;
+        await _prefs.setString(_voiceKey, voiceName);
         
         // Test the voice change immediately
-        await speakTest("Voice changed to $value");
+        await speakTest("Voice changed to $voiceName");
       } else {
         print('Selected voice not found in available voices');
       }
@@ -125,7 +169,8 @@ class WorkoutTTSSettings {
     try {
       final voices = await _flutterTts.getVoices;
       return (voices as List)
-          .map((voice) => voice['name'] as String)
+          .map((voice) => voice['name']?.toString() ?? '')
+          .where((name) => name.isNotEmpty)
           .toList();
     } catch (e) {
       print('Error getting available voices: $e');
