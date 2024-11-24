@@ -14,8 +14,8 @@ mkdir -p lib/config
 umask 077
 cat > lib/config/env.local.dart << EOL
 class Environment {
-  static const String stravaClientId = '${STRAVA_CLIENT_ID}';
-  static const String stravaClientSecret = '${STRAVA_CLIENT_SECRET}';
+  static const String stravaClientId = '${CI_STRAVA_CLIENT_ID}';
+  static const String stravaClientSecret = '${CI_STRAVA_CLIENT_SECRET}';
   
   static bool get hasStravaConfig => 
     stravaClientId.isNotEmpty && stravaClientSecret.isNotEmpty;
