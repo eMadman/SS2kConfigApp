@@ -1,58 +1,9 @@
-// This file handles both local development and CI environments
-import 'env.fallback.dart' as fallback;
-import 'env.local.dart' as local_env;
+// This file handles environment configuration
+import 'env.local.dart';
 
-class Environment {
-  static bool _useLocalEnv = false;
-  static bool _initialized = false;
+// Re-export Environment class from env.local.dart
+export 'env.local.dart';
 
-  /// Initialize the environment configuration
-  static void init() {
-    if (_initialized) return;
-    
-    try {
-      // Try to access local environment to see if it exists
-      local_env.Environment.stravaClientId;
-      _useLocalEnv = true;
-    } catch (_) {
-      _useLocalEnv = false;
-    }
-    
-    _initialized = true;
-  }
-
-  static String get stravaClientId {
-    // First try to get from dart-define (CI environment)
-    var value = const String.fromEnvironment('STRAVA_CLIENT_ID');
-    if (value.isNotEmpty) {
-      return value;
-    }
-    
-    // If local env is available and loaded, use it
-    if (_useLocalEnv) {
-      return local_env.Environment.stravaClientId;
-    }
-    
-    // Fallback to empty string if no configuration is found
-    return fallback.Environment.stravaClientId;
-  }
-  
-  static String get stravaClientSecret {
-    // First try to get from dart-define (CI environment)
-    var value = const String.fromEnvironment('STRAVA_CLIENT_SECRET');
-    if (value.isNotEmpty) {
-      return value;
-    }
-    
-    // If local env is available and loaded, use it
-    if (_useLocalEnv) {
-      return local_env.Environment.stravaClientSecret;
-    }
-    
-    // Fallback to empty string if no configuration is found
-    return fallback.Environment.stravaClientSecret;
-  }
-  
-  static bool get hasStravaConfig => 
-    stravaClientId.isNotEmpty && stravaClientSecret.isNotEmpty;
-}
+// Note: During CI builds, env.local.dart is automatically created with values from repository secrets.
+// For local development, copy env.template.dart to env.local.dart and add your credentials.
+// See env.template.dart for detailed instructions on environment setup.
