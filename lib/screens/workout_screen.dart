@@ -12,6 +12,7 @@ import '../utils/workout/sounds.dart';
 import '../utils/workout/gpx_file_exporter.dart';
 import '../utils/workout/workout_file_manager.dart';
 import '../utils/workout/workout_tts_settings.dart';
+import '../utils/workout/workout_connected_accounts.dart';
 import '../utils/bledata.dart';
 import '../widgets/workout_library.dart';
 import '../widgets/audio_coach_dialog.dart';
@@ -54,7 +55,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
     super.initState();
     WakelockPlus.enable();
     bleData = BLEDataManager.forDevice(widget.device);
-    _workoutController = WorkoutController(bleData);
+    _workoutController = WorkoutController(bleData, widget.device);
     _initTTSSettings();
 
     _metricsAndSummaryFadeController = AnimationController(
@@ -138,7 +139,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
   Future<void> _loadDefaultWorkout() async {
     try {
       final content = await rootBundle.loadString('assets/Anthonys_Mix.zwo');
-      _workoutController.loadWorkout(content);
+      _workoutController.loadWorkout(content, isResume: false); // Explicitly set isResume to false
       _currentWorkoutContent = content;
       // Wait for the graph to be rendered
       await Future.delayed(const Duration(milliseconds: 100));
@@ -278,7 +279,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
                   selectionMode: selectionMode,
                   onWorkoutSelected: (content) {
                     Navigator.pop(context);
-                    _workoutController.loadWorkout(content);
+                    _workoutController.loadWorkout(content, isResume: false); // Explicitly set isResume to false
                     _currentWorkoutContent = content;
                   },
                   onWorkoutDeleted: (name) async {
@@ -336,6 +337,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
                 case 'audio':
                   _showAudioCoachDialog();
                   break;
+                case 'connected_accounts':
+                  WorkoutConnectedAccounts.showConnectedAccountsDialog(context);
+                  break;
               }
             },
             itemBuilder: (context) => [
@@ -376,6 +380,16 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
                     Icon(Icons.record_voice_over),
                     SizedBox(width: 8),
                     Text('Audio Coach'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'connected_accounts',
+                child: Row(
+                  children: [
+                    Icon(Icons.link),
+                    SizedBox(width: 8),
+                    Text('Connected Accounts'),
                   ],
                 ),
               ),
@@ -438,6 +452,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
                                                     currentPower: _workoutController.isPlaying
                                                         ? bleData.ftmsData.watts.toDouble()
                                                         : null,
+                                                    powerPointsList: _workoutController.getPowerPointsUpToNow(),
                                                   ),
                                                   child: Container(),
                                                 ),

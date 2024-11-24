@@ -76,6 +76,13 @@ pubspec.lock
 
 # Local configuration files
 /android/key.properties
+.env
+.env.local
+.env.development
+.env.production
 
 # Generated code files
 /lib/generated_plugin_registrant.dart
+
+# Environment configuration
+lib/config/env.local.dart

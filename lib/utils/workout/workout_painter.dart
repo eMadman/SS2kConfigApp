@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'workout_parser.dart';
 import 'workout_constants.dart';
+import 'workout_controller.dart';
 
 class WorkoutPainter extends CustomPainter {
   final List<WorkoutSegment> segments;
@@ -10,6 +11,7 @@ class WorkoutPainter extends CustomPainter {
   final double currentProgress;
   final Map<int, double> actualPowerPoints;
   final double? currentPower;
+  final List<double>? powerPointsList;  // New parameter for interpolated points
 
   WorkoutPainter({
     required this.segments,
@@ -19,6 +21,7 @@ class WorkoutPainter extends CustomPainter {
     required this.currentProgress,
     required this.actualPowerPoints,
     this.currentPower,
+    this.powerPointsList,  // Add this parameter
   });
 
   @override
@@ -93,7 +96,7 @@ class WorkoutPainter extends CustomPainter {
   }
 
   void _drawActualPowerTrail(Canvas canvas, Size size, double heightScale, double widthScale) {
-    if (actualPowerPoints.isEmpty) return;
+    if (powerPointsList == null || powerPointsList!.isEmpty) return;
 
     final powerPaint = Paint()
       ..color = Colors.red
@@ -103,16 +106,10 @@ class WorkoutPainter extends CustomPainter {
     final path = Path();
     bool isFirstPoint = true;
 
-    // Sort time indices to ensure we draw points in order
-    final timeIndices = actualPowerPoints.keys.toList()..sort();
-    
-    // Draw power trail up to current progress
-    for (final timeIndex in timeIndices) {
-      // Skip points beyond current progress
-      if (timeIndex > (currentProgress * totalDuration)) break;
-      
-      final watts = actualPowerPoints[timeIndex]!;
-      final x = timeIndex * (size.width / totalDuration);
+    // Draw interpolated power points
+    for (int i = 0; i < powerPointsList!.length; i++) {
+      final watts = powerPointsList![i];
+      final x = i * widthScale;
       final y = size.height - (watts * heightScale);
 
       if (isFirstPoint) {
