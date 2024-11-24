@@ -38,20 +38,31 @@ class WorkoutTTSSettings {
   }
 
   Future<void> _initTts() async {
-    await _flutterTts.setLanguage("en-US");
-    if (isIOS) {
-      await _flutterTts.setIosAudioCategory(
-          IosTextToSpeechAudioCategory.ambient,
-          [
-            IosTextToSpeechAudioCategoryOptions.mixWithOthers,
-          ],
-          IosTextToSpeechAudioMode.voicePrompt);
-    }
-    await _flutterTts.setSpeechRate(_rate);
-    await _flutterTts.setVolume(_volume);
-    await _flutterTts.setPitch(_pitch);
-    if (_voice != null) {
-      await _flutterTts.setVoice({"name": _voice!});
+    try {
+      await _flutterTts.setLanguage("en-US");
+      if (isIOS) {
+        await _flutterTts.setIosAudioCategory(
+            IosTextToSpeechAudioCategory.ambient,
+            [
+              IosTextToSpeechAudioCategoryOptions.mixWithOthers,
+            ],
+            IosTextToSpeechAudioMode.voicePrompt);
+      }
+      await _flutterTts.setSpeechRate(_rate);
+      await _flutterTts.setVolume(_volume);
+      await _flutterTts.setPitch(_pitch);
+      if (_voice != null) {
+        final voices = await _flutterTts.getVoices;
+        final selectedVoice = (voices as List).firstWhere(
+          (voice) => voice['name'] == _voice,
+          orElse: () => null,
+        );
+        if (selectedVoice != null) {
+          await _flutterTts.setVoice(selectedVoice);
+        }
+      }
+    } catch (e) {
+      print('Error initializing TTS: $e');
     }
   }
 
@@ -70,9 +81,26 @@ class WorkoutTTSSettings {
   }
 
   Future<void> setVoice(String value) async {
-    _voice = value;
-    await _prefs.setString(_voiceKey, value);
-    await _flutterTts.setVoice({"name": value});
+    try {
+      final voices = await _flutterTts.getVoices;
+      final selectedVoice = (voices as List).firstWhere(
+        (voice) => voice['name'] == value,
+        orElse: () => null,
+      );
+      
+      if (selectedVoice != null) {
+        await _flutterTts.setVoice(selectedVoice);
+        _voice = value;
+        await _prefs.setString(_voiceKey, value);
+        
+        // Test the voice change immediately
+        await speakTest("Voice changed to $value");
+      } else {
+        print('Selected voice not found in available voices');
+      }
+    } catch (e) {
+      print('Error setting voice: $e');
+    }
   }
 
   Future<void> setVolume(double value) async {
@@ -94,25 +122,37 @@ class WorkoutTTSSettings {
   }
 
   Future<List<String>> getAvailableVoices() async {
-    final voices = await _flutterTts.getVoices;
-    return (voices as List)
-        .map((voice) => voice['name'] as String)
-        .toList();
+    try {
+      final voices = await _flutterTts.getVoices;
+      return (voices as List)
+          .map((voice) => voice['name'] as String)
+          .toList();
+    } catch (e) {
+      print('Error getting available voices: $e');
+      return [];
+    }
   }
 
   Future<void> speak(String message) async {
     if (!_enabled || _spokenMessages.contains(message)) return;
     
-    await _flutterTts.speak(message);
-    _spokenMessages.add(message);
+    try {
+      await _flutterTts.speak(message);
+      _spokenMessages.add(message);
+    } catch (e) {
+      print('Error speaking message: $e');
+    }
   }
 
-  // Separate method for testing that doesn't add to spoken messages
   Future<void> speakTest(String message) async {
     if (!_enabled) return;
     
-    await stop(); // Stop any current speech first
-    await _flutterTts.speak(message);
+    try {
+      await stop(); // Stop any current speech first
+      await _flutterTts.speak(message);
+    } catch (e) {
+      print('Error in test speech: $e');
+    }
   }
 
   void clearSpokenMessages() {
