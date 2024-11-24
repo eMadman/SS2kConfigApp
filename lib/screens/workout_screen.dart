@@ -13,7 +13,9 @@ import '../utils/workout/gpx_file_exporter.dart';
 import '../utils/workout/workout_file_manager.dart';
 import '../utils/bledata.dart';
 import '../widgets/workout_library.dart';
-import '../utils/workout/workout_parser.dart';
+import '../utils/workout/workout_text_event_overlay.dart';
+import '../utils/workout/workout_controls.dart';
+import '../utils/workout/workout_summary.dart';
 
 class WorkoutScreen extends StatefulWidget {
   final BluetoothDevice device;
@@ -21,76 +23,6 @@ class WorkoutScreen extends StatefulWidget {
 
   @override
   State<WorkoutScreen> createState() => _WorkoutScreenState();
-}
-
-class WorkoutTextEventOverlay extends StatelessWidget {
-  final WorkoutSegment? currentSegment;
-  final int secondsIntoSegment;
-  final Animation<double> fadeAnimation;
-
-  const WorkoutTextEventOverlay({
-    Key? key,
-    required this.currentSegment,
-    required this.secondsIntoSegment,
-    required this.fadeAnimation,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    if (currentSegment == null) return const SizedBox.shrink();
-
-    final visibleEvents = currentSegment!.getVisibleTextEventsAt(secondsIntoSegment);
-    if (visibleEvents.isEmpty) return const SizedBox.shrink();
-
-    return FadeTransition(
-      opacity: fadeAnimation,
-      child: Align(
-        alignment: Alignment.topCenter,
-        child: Container(
-          margin: EdgeInsets.only(
-            top: WorkoutSpacing.medium * 4,
-            left: WorkoutPadding.standard,
-            right: WorkoutPadding.standard,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: visibleEvents.map((event) {
-              return Padding(
-                padding: EdgeInsets.symmetric(vertical: WorkoutSpacing.xsmall),
-                child: Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: WorkoutPadding.standard,
-                    vertical: WorkoutPadding.small,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface.withOpacity(0.9),
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Opacity(
-                    opacity: event.getOpacityAt(secondsIntoSegment),
-                    child: Text(
-                      event.message,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateMixin {
@@ -111,24 +43,12 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
   static const double previewMinutes = 40;
   static const double playingMinutes = 10;
 
-  // FTP wheel scroll controller
-  late final FixedExtentScrollController _ftpScrollController;
-  static const int minFTP = 50;
-  static const int maxFTP = 500;
-  static const int ftpStep = 1;
-  late int _selectedFTP;
-
   @override
   void initState() {
     super.initState();
     WakelockPlus.enable();
     bleData = BLEDataManager.forDevice(widget.device);
     _workoutController = WorkoutController(bleData);
-    _selectedFTP = _workoutController.ftpValue.round();
-
-    _ftpScrollController = FixedExtentScrollController(
-      initialItem: (_selectedFTP - minFTP) ~/ ftpStep,
-    );
 
     _fadeController = AnimationController(
       duration: WorkoutDurations.fadeAnimation,
@@ -175,10 +95,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
       }
       setState(() {
         _workoutName = _workoutController.workoutName;
-        if (_selectedFTP != _workoutController.ftpValue.round()) {
-          _selectedFTP = _workoutController.ftpValue.round();
-          _ftpScrollController.jumpToItem((_selectedFTP - minFTP) ~/ ftpStep);
-        }
       });
     });
 
@@ -304,7 +220,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
     bleData.isReadingOrWriting.removeListener(_rwListener);
     _workoutController.dispose();
     _scrollController.dispose();
-    _ftpScrollController.dispose();
     workoutSoundGenerator.dispose();
     if (_workoutController.progressPosition >= 1.0) {
       WorkoutStorage.clearWorkoutState();
@@ -350,149 +265,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildWorkoutSummary() {
-    if (_workoutController.segments.isEmpty) return const SizedBox.shrink();
-
-    int totalTime = _workoutController.totalDuration.round();
-    double normalizedWork = 0;
-
-    for (var segment in _workoutController.segments) {
-      if (segment.isRamp) {
-        normalizedWork += segment.duration * ((segment.powerLow + segment.powerHigh) / 2) * _workoutController.ftpValue;
-      } else {
-        normalizedWork += segment.duration * segment.powerLow * _workoutController.ftpValue;
-      }
-    }
-
-    final intensityFactor = (normalizedWork / totalTime) / _workoutController.ftpValue;
-    final tss = (totalTime * intensityFactor * intensityFactor) / 36;
-
-    return FadeTransition(
-      opacity: _fadeAnimation,
-      child: Card(
-        margin: EdgeInsets.all(WorkoutPadding.small),
-        child: Padding(
-          padding: EdgeInsets.all(WorkoutPadding.standard),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Workout Summary',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              SizedBox(height: WorkoutSpacing.xsmall),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _SummaryItem(
-                    label: 'Duration',
-                    value: _workoutController.formatDuration(totalTime),
-                    icon: Icons.timer,
-                  ),
-                  _SummaryItem(
-                    label: 'TSS',
-                    value: tss.toStringAsFixed(1),
-                    icon: Icons.fitness_center,
-                  ),
-                  _SummaryItem(
-                    label: 'IF',
-                    value: intensityFactor.toStringAsFixed(2),
-                    icon: Icons.show_chart,
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildControls() {
-    return Container(
-      padding: EdgeInsets.symmetric(vertical: WorkoutPadding.small),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (_workoutController.isPlaying)
-                IconButton(
-                  icon: const Icon(Icons.stop_circle),
-                  iconSize: 48,
-                  onPressed: () => _showStopWorkoutDialog(),
-                ),
-              IconButton(
-                icon: Icon(_workoutController.isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled),
-                iconSize: 48,
-                onPressed: () {
-                  if (!_workoutController.isPlaying) {
-                    workoutSoundGenerator.playButtonSound();
-                  }
-                  _workoutController.togglePlayPause();
-                },
-              ),
-              if (_workoutController.isPlaying)
-                IconButton(
-                  icon: const Icon(Icons.skip_next),
-                  iconSize: 48,
-                  onPressed: _workoutController.skipToNextSegment,
-                ),
-            ],
-          ),
-          Positioned(
-            right: WorkoutPadding.standard,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('FTP: '),
-                SizedBox(
-                  width: 80,
-                  height: 220,
-                  child: ListWheelScrollView.useDelegate(
-                    controller: _ftpScrollController,
-                    useMagnifier: true,
-                    magnification: 1.3,
-                    clipBehavior: Clip.none,
-                    overAndUnderCenterOpacity: .2,
-                    itemExtent: 40,
-                    perspective: 0.01,
-                    diameterRatio: 2,
-                    physics: const FixedExtentScrollPhysics(),
-                    onSelectedItemChanged: (index) {
-                      setState(() {
-                        _selectedFTP = minFTP + (index * ftpStep);
-                        _workoutController.updateFTP(_selectedFTP.toDouble());
-                      });
-                    },
-                    childDelegate: ListWheelChildBuilderDelegate(
-                      childCount: ((maxFTP - minFTP) ~/ ftpStep) + 1,
-                      builder: (context, index) {
-                        final value = minFTP + (index * ftpStep);
-                        return Container(
-                          alignment: Alignment.center,
-                          child: Text(
-                            value.toString(),
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: value == _selectedFTP ? FontWeight.bold : FontWeight.normal,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-                const Text('W'),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -563,7 +335,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
         children: [
           Stack(
             children: [
-              _buildWorkoutSummary(),
+              WorkoutSummary(
+                workoutController: _workoutController,
+                fadeAnimation: _fadeAnimation,
+              ),
               WorkoutMetrics(
                 bleData: bleData,
                 fadeAnimation: _fadeAnimation,
@@ -645,39 +420,12 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
                     },
                   ),
           ),
-          _buildControls(),
+          WorkoutControls(
+            workoutController: _workoutController,
+            onStopWorkout: _showStopWorkoutDialog,
+          ),
         ],
       ),
-    );
-  }
-}
-
-class _SummaryItem extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-
-  const _SummaryItem({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Icon(icon, size: 24),
-        SizedBox(height: WorkoutSpacing.xxsmall),
-        Text(
-          value,
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-      ],
     );
   }
 }
