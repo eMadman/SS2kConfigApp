@@ -69,7 +69,7 @@ class WorkoutController extends ChangeNotifier {
 
     if (workoutContent != null) {
       // Load the saved workout
-      loadWorkout(workoutContent);
+      loadWorkout(workoutContent, isResume: true);
 
       // Restore progress
       progressPosition = savedState['progressPosition'] as double;
@@ -83,7 +83,7 @@ class WorkoutController extends ChangeNotifier {
     }
   }
 
-  WorkoutSegment? get currentSegment {
+WorkoutSegment? get currentSegment {
     if (segments.isEmpty) return null;
     int totalTime = 0;
     for (var segment in segments) {
@@ -185,8 +185,9 @@ class WorkoutController extends ChangeNotifier {
       elapsedTime += segments[i].duration;
     }
   }
-
-  void loadWorkout(String xmlContent) {
+  
+  // Modified loadWorkout to handle fresh loads vs. resumes
+  void loadWorkout(String xmlContent, {bool isResume = false}) {
     try {
       final workoutData = WorkoutParser.parseZwoFile(xmlContent);
 
@@ -209,12 +210,18 @@ class WorkoutController extends ChangeNotifier {
       workoutName = workoutData.name;
       maxPower = maxPowerTemp;
       totalDuration = totalDurationTemp;
-      progressPosition = 0;
-      actualPowerPoints = {};
-      elapsedSeconds = 0;
-      _totalDistance = 0;
-      _lastAltitude = 100.0;
-      _totalAscent = 0;
+      
+      // Only reset these values if it's not a resume
+      if (!isResume) {
+        progressPosition = 0;
+        actualPowerPoints = {};
+        elapsedSeconds = 0;
+        _totalDistance = 0;
+        _lastAltitude = 100.0;
+        _totalAscent = 0;
+        isPlaying = false; // Ensure workout starts in stopped state for fresh loads
+      }
+      
       _currentWorkoutContent = xmlContent;
 
       // Reset simulation parameters when loading new workout

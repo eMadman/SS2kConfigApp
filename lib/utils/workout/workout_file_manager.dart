@@ -48,8 +48,8 @@ class WorkoutFileManager {
           throw Exception('Invalid workout file format. Expected .zwo file content.');
         }
         
-        // Load the workout to generate the graph
-        workoutController.loadWorkout(content);
+        // Load the workout to generate the graph, ensuring it starts in stopped state
+        workoutController.loadWorkout(content, isResume: false);
         onWorkoutLoaded(content);
         
         // Wait for the graph to be rendered

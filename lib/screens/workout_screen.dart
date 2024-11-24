@@ -138,7 +138,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
   Future<void> _loadDefaultWorkout() async {
     try {
       final content = await rootBundle.loadString('assets/Anthonys_Mix.zwo');
-      _workoutController.loadWorkout(content);
+      _workoutController.loadWorkout(content, isResume: false); // Explicitly set isResume to false
       _currentWorkoutContent = content;
       // Wait for the graph to be rendered
       await Future.delayed(const Duration(milliseconds: 100));
@@ -278,7 +278,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
                   selectionMode: selectionMode,
                   onWorkoutSelected: (content) {
                     Navigator.pop(context);
-                    _workoutController.loadWorkout(content);
+                    _workoutController.loadWorkout(content, isResume: false); // Explicitly set isResume to false
                     _currentWorkoutContent = content;
                   },
                   onWorkoutDeleted: (name) async {
