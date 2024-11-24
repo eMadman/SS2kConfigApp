@@ -125,13 +125,20 @@ class _SmartSpin2kAppState extends State<SmartSpin2kApp> {
               const SnackBar(
                 content: Text('Successfully connected to Strava'),
                 backgroundColor: Colors.green,
+                duration: Duration(seconds: 3),
               ),
             );
+
+            // Close the Connected Accounts dialog if it's open
+            if (_navigatorKey.currentState?.canPop() ?? false) {
+              _navigatorKey.currentState?.pop();
+            }
           } else if (mounted) {
             _scaffoldKey.currentState?.showSnackBar(
               const SnackBar(
                 content: Text('Failed to connect to Strava'),
                 backgroundColor: Colors.red,
+                duration: Duration(seconds: 3),
               ),
             );
           }
