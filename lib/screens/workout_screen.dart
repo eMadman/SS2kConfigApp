@@ -438,6 +438,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
                                                     currentPower: _workoutController.isPlaying
                                                         ? bleData.ftmsData.watts.toDouble()
                                                         : null,
+                                                    powerPointsList: _workoutController.getPowerPointsUpToNow(),
                                                   ),
                                                   child: Container(),
                                                 ),
