@@ -569,8 +569,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
                 fadeAnimation: _fadeAnimation,
                 elapsedTime: _workoutController.elapsedSeconds,
                 timeToNextSegment: _workoutController.currentSegmentTimeRemaining,
+                totalDuration: _workoutController.totalDuration,
               ),
-              // Add this new widget
               WorkoutTextEventOverlay(
                 currentSegment: _workoutController.currentSegment,
                 secondsIntoSegment: _workoutController.currentSegmentElapsedSeconds,

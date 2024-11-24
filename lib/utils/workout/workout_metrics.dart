@@ -8,6 +8,7 @@ class WorkoutMetrics extends StatelessWidget {
   final Animation<double> fadeAnimation;
   final int elapsedTime;
   final int timeToNextSegment;
+  final double totalDuration;
 
   const WorkoutMetrics({
     Key? key,
@@ -15,6 +16,7 @@ class WorkoutMetrics extends StatelessWidget {
     required this.fadeAnimation,
     required this.elapsedTime,
     required this.timeToNextSegment,
+    required this.totalDuration,
   }) : super(key: key);
 
   @override
@@ -34,6 +36,10 @@ class WorkoutMetrics extends StatelessWidget {
         label: 'Next Block',
         value: _formatDuration(timeToNextSegment),
       ),
+      WorkoutMetric.remainingTime(
+        totalSeconds: totalDuration.round(),
+        elapsedSeconds: elapsedTime,
+      ),
     ];
 
     return Center(
@@ -44,14 +50,15 @@ class WorkoutMetrics extends StatelessWidget {
             horizontal: WorkoutPadding.small,
             vertical: WorkoutSpacing.small,
           ),
-          child: Container(
-            width: double.infinity,
-            alignment: Alignment.center,
+          child: Padding(
             padding: EdgeInsets.symmetric(
               horizontal: WorkoutPadding.standard,
               vertical: WorkoutPadding.small,
             ),
-            child: WorkoutMetricRow(metrics: metrics),
+            child: SizedBox(
+              width: double.infinity,
+              child: WorkoutMetricRow(metrics: metrics),
+            ),
           ),
         ),
       ),

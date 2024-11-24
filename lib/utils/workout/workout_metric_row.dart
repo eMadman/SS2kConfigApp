@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'dart:math';
 import 'workout_constants.dart';
+import 'workout_metric_preferences.dart';
 
-class WorkoutMetricRow extends StatelessWidget {
+class WorkoutMetricRow extends StatefulWidget {
   final List<WorkoutMetric> metrics;
 
   const WorkoutMetricRow({
@@ -11,42 +13,110 @@ class WorkoutMetricRow extends StatelessWidget {
   }) : super(key: key);
 
   @override
+  State<WorkoutMetricRow> createState() => _WorkoutMetricRowState();
+}
+
+class _WorkoutMetricRowState extends State<WorkoutMetricRow> {
+  List<WorkoutMetric> orderedMetrics = [];
+
+  @override
+  void initState() {
+    super.initState();
+    orderedMetrics = List.from(widget.metrics);
+    _loadMetricOrder();
+  }
+
+  @override
+  void didUpdateWidget(WorkoutMetricRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!listEquals(widget.metrics, oldWidget.metrics)) {
+      _updateOrderedMetrics();
+    }
+  }
+
+  Future<void> _loadMetricOrder() async {
+    try {
+      final order = await WorkoutMetricPreferences.getMetricOrder();
+      if (mounted) {
+        setState(() {
+          orderedMetrics = _orderMetrics(widget.metrics, order);
+        });
+      }
+    } catch (e) {
+      print('Error loading metric order: $e');
+    }
+  }
+
+  void _updateOrderedMetrics() {
+    final currentLabels = orderedMetrics.map((m) => m.label).toList();
+    setState(() {
+      orderedMetrics = _orderMetrics(widget.metrics, currentLabels);
+    });
+  }
+
+  List<WorkoutMetric> _orderMetrics(List<WorkoutMetric> metrics, List<String> order) {
+    final metricMap = {for (var m in metrics) m.label: m};
+    final orderedList = <WorkoutMetric>[];
+    
+    for (var label in order) {
+      if (metricMap.containsKey(label)) {
+        orderedList.add(metricMap[label]!);
+        metricMap.remove(label);
+      }
+    }
+    
+    orderedList.addAll(metricMap.values);
+    return orderedList;
+  }
+
+  @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Calculate total width of all metrics
-        double totalWidth = metrics.fold(0.0, (sum, metric) {
+        double totalWidth = orderedMetrics.fold(0.0, (sum, metric) {
           return sum + _calculateMetricWidth(metric.value) + (2 * WorkoutPadding.metricHorizontal);
         });
 
-        // If total width is less than available width, center the row
-        if (totalWidth <= constraints.maxWidth) {
-          return Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: metrics.map((metric) {
-              return Padding(
-                padding: EdgeInsets.symmetric(horizontal: WorkoutPadding.metricHorizontal),
-                child: MetricBox(metric: metric),
-              );
-            }).toList(),
-          );
-        }
-
-        // Otherwise, use scrollable row
-        return SingleChildScrollView(
+        Widget content = ReorderableListView(
           scrollDirection: Axis.horizontal,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: metrics.map((metric) {
-              return Padding(
-                padding: EdgeInsets.symmetric(horizontal: WorkoutPadding.metricHorizontal),
-                child: MetricBox(metric: metric),
-              );
-            }).toList(),
-          ),
+          onReorder: _handleReorder,
+          children: orderedMetrics.asMap().entries.map((entry) {
+            return Padding(
+              key: ValueKey(entry.value.label),
+              padding: EdgeInsets.symmetric(horizontal: WorkoutPadding.metricHorizontal),
+              child: MetricBox(metric: entry.value),
+            );
+          }).toList(),
+        );
+
+        return SizedBox(
+          width: constraints.maxWidth,
+          height: WorkoutSizes.metricBoxHeight + (2 * WorkoutPadding.small),
+          child: totalWidth <= constraints.maxWidth
+              ? content
+              : SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: SizedBox(
+                    width: totalWidth,
+                    child: content,
+                  ),
+                ),
         );
       },
     );
+  }
+
+  void _handleReorder(int oldIndex, int newIndex) async {
+    setState(() {
+      if (oldIndex < newIndex) {
+        newIndex -= 1;
+      }
+      final item = orderedMetrics.removeAt(oldIndex);
+      orderedMetrics.insert(newIndex, item);
+    });
+    
+    final newOrder = orderedMetrics.map((m) => m.label).toList();
+    await WorkoutMetricPreferences.saveMetricOrder(newOrder);
   }
 
   double _calculateMetricWidth(String value) {
@@ -64,13 +134,9 @@ class MetricBox extends StatelessWidget {
   }) : super(key: key);
 
   double _calculateFontSize(String text, double boxWidth) {
-    // Start with base font size
     double fontSize = WorkoutFontSizes.metricValueBase;
-    
-    // Estimate text width (rough approximation)
     double estimatedWidth = text.length * (fontSize * 0.6);
     
-    // If text might overflow, scale down the font size
     if (estimatedWidth > boxWidth - WorkoutPadding.metricBoxContent) {
       fontSize = min(
         WorkoutFontSizes.metricValueBase,
@@ -183,4 +249,28 @@ class WorkoutMetric {
       value: '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}',
     );
   }
+
+  factory WorkoutMetric.remainingTime({required int totalSeconds, required int elapsedSeconds}) {
+    final remainingSeconds = totalSeconds - elapsedSeconds;
+    final hours = remainingSeconds ~/ 3600;
+    final minutes = (remainingSeconds % 3600) ~/ 60;
+    final seconds = remainingSeconds % 60;
+    
+    return WorkoutMetric(
+      label: 'Remaining Time',
+      value: '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}',
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is WorkoutMetric &&
+          runtimeType == other.runtimeType &&
+          label == other.label &&
+          value == other.value &&
+          unit == other.unit;
+
+  @override
+  int get hashCode => label.hashCode ^ value.hashCode ^ unit.hashCode;
 }
