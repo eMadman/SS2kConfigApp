@@ -11,8 +11,10 @@ import '../utils/workout/workout_storage.dart';
 import '../utils/workout/sounds.dart';
 import '../utils/workout/gpx_file_exporter.dart';
 import '../utils/workout/workout_file_manager.dart';
+import '../utils/workout/workout_tts_settings.dart';
 import '../utils/bledata.dart';
 import '../widgets/workout_library.dart';
+import '../widgets/audio_coach_dialog.dart';
 import '../utils/workout/workout_text_event_overlay.dart';
 import '../utils/workout/workout_controls.dart';
 import '../utils/workout/workout_summary.dart';
@@ -34,7 +36,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
   late Animation<double> _textEventFadeAnimation;
   late BLEData bleData;
   late WorkoutController _workoutController;
+  late WorkoutTTSSettings _ttsSettings;
   bool _refreshBlocker = false;
+  bool _ttsInitialized = false;
   StreamSubscription<BluetoothConnectionState>? _connectionStateSubscription;
   final ScrollController _scrollController = ScrollController();
   double _lastScrollPosition = 0;
@@ -51,6 +55,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
     WakelockPlus.enable();
     bleData = BLEDataManager.forDevice(widget.device);
     _workoutController = WorkoutController(bleData);
+    _initTTSSettings();
 
     _metricsAndSummaryFadeController = AnimationController(
       duration: WorkoutDurations.fadeAnimation,
@@ -123,6 +128,13 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
     });
   }
 
+  Future<void> _initTTSSettings() async {
+    _ttsSettings = await WorkoutTTSSettings.create();
+    setState(() {
+      _ttsInitialized = true;
+    });
+  }
+
   Future<void> _loadDefaultWorkout() async {
     try {
       final content = await rootBundle.loadString('assets/Anthonys_Mix.zwo');
@@ -173,6 +185,13 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
       await _workoutController.stopWorkout();
       GpxFileExporter.showExportDialog(context, _workoutController, _currentWorkoutContent);
     }
+  }
+
+  void _showAudioCoachDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AudioCoachDialog(ttsSettings: _ttsSettings),
+    );
   }
 
   void _updateScrollPosition() {
@@ -232,6 +251,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
     _workoutController.dispose();
     _scrollController.dispose();
     workoutSoundGenerator.dispose();
+    _ttsSettings.dispose();
     if (_workoutController.progressPosition >= 1.0) {
       WorkoutStorage.clearWorkoutState();
     }
@@ -282,6 +302,14 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
+    if (!_ttsInitialized) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text(_workoutName ?? ''),
@@ -304,6 +332,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
                   break;
                 case 'delete':
                   _showWorkoutLibrary(selectionMode: false);
+                  break;
+                case 'audio':
+                  _showAudioCoachDialog();
                   break;
               }
             },
@@ -335,6 +366,16 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
                     Icon(Icons.delete),
                     SizedBox(width: 8),
                     Text('Delete Workout'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'audio',
+                child: Row(
+                  children: [
+                    Icon(Icons.record_voice_over),
+                    SizedBox(width: 8),
+                    Text('Audio Coach'),
                   ],
                 ),
               ),
@@ -439,6 +480,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
               currentSegment: _workoutController.currentSegment,
               secondsIntoSegment: _workoutController.currentSegmentElapsedSeconds,
               fadeAnimation: _textEventFadeAnimation,
+              ttsSettings: _ttsSettings,
             ),
           ),
         ],
