@@ -30,9 +30,6 @@ void main() async {
   final themeJson = jsonDecode(themeStr);
   final theme = ThemeDecoder.decodeThemeData(themeJson)!;
 
-  // Initialize environment configuration
-  Environment.init();
-
   runApp(SmartSpin2kApp(theme: theme));
 }
 
