@@ -33,6 +33,9 @@ dependencies:
   audioplayers: ^6.1.0
   just_audio: ^0.9.36
   share_plus: ^10.1.2
+  fit_tool: ^1.0.5
+  gpx: ^2.2.1
+  flutter_tts: ^4.2.0
 
 dev_dependencies:
   flutter_test:

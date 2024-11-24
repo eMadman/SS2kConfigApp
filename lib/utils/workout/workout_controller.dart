@@ -4,7 +4,6 @@ import 'dart:math' as math;
 import '../bledata.dart';
 import '../ftmsControlPoint.dart';
 import 'workout_parser.dart';
-import 'workout_constants.dart';
 import 'workout_storage.dart';
 import 'sounds.dart';
 
@@ -84,6 +83,30 @@ class WorkoutController extends ChangeNotifier {
     }
   }
 
+  WorkoutSegment? get currentSegment {
+    if (segments.isEmpty) return null;
+    int totalTime = 0;
+    for (var segment in segments) {
+      totalTime += segment.duration;
+      if (totalTime > elapsedSeconds) {
+        return segment;
+      }
+    }
+    return segments.last;
+  }
+
+  int get currentSegmentElapsedSeconds {
+    if (segments.isEmpty) return 0;
+    int totalTime = 0;
+    for (var segment in segments) {
+      if (totalTime + segment.duration > elapsedSeconds) {
+        return elapsedSeconds - totalTime;
+      }
+      totalTime += segment.duration;
+    }
+    return 0;
+  }
+
   // Helper method to reset simulation parameters
   Future<void> _resetSimulationParameters() async {
     if (bleData.ftmsControlPointCharacteristic != null) {
@@ -104,12 +127,17 @@ class WorkoutController extends ChangeNotifier {
   void togglePlayPause() {
     isPlaying = !isPlaying;
     if (isPlaying) {
-      _totalDistance = 0;
-      _lastAltitude = 100.0;
-      _totalAscent = 0;
+      // Only reset these values if we're at the start of the workout
+      if (progressPosition == 0) {
+        _totalDistance = 0;
+        _lastAltitude = 100.0;
+        _totalAscent = 0;
+        actualPowerPoints = {};
+        elapsedSeconds = 0;
+        trackPoints.clear();
+        _workoutStartTime = DateTime.now();
+      }
       startProgress();
-      actualPowerPoints = {};
-      elapsedSeconds = 0;
     } else {
       progressTimer?.cancel();
       // Reset simulation parameters when stopping
@@ -201,9 +229,13 @@ class WorkoutController extends ChangeNotifier {
 
   void startProgress() {
     progressTimer?.cancel();
-    _workoutStartTime = DateTime.now();
-    _lastTrackPointTime = _workoutStartTime;
-    trackPoints.clear();
+
+    // Only initialize these if we're at the start of the workout
+    if (progressPosition == 0) {
+      _workoutStartTime = DateTime.now();
+      _lastTrackPointTime = _workoutStartTime;
+      trackPoints.clear();
+    }
 
     progressTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
       progressPosition += 0.1 / totalDuration;
@@ -214,8 +246,8 @@ class WorkoutController extends ChangeNotifier {
       actualPowerPoints[elapsedSeconds] = currentPower;
 
       // Calculate speed (m/s) from power
-      double speedKmh = currentPower > 0 ? math.pow(currentPower / 0.125, 1 / 3).toDouble() : 0;
-      double speedMps = speedKmh / 3.6; // Convert km/h to m/s
+      double speedMph = currentPower > 0 ? 2.418 * math.pow(currentPower, 0.394) : 0;
+      double speedMps = speedMph * 0.44704; // Convert mph to m/s
 
       // Update total distance (in meters)
       _totalDistance += speedMps * 0.1; // 0.1 seconds worth of distance

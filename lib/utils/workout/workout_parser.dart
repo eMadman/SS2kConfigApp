@@ -1,5 +1,5 @@
-import 'dart:convert';
 import 'package:xml/xml.dart';
+import 'workout_constants.dart';
 
 enum SegmentType {
   steadyState,
@@ -11,12 +11,57 @@ enum SegmentType {
   maxEffort
 }
 
+class TextEvent {
+  final int timeOffset; // Time in seconds from start of segment
+  final String message;
+  final int? locIndex;
+  final int duration; // Duration in seconds to show the message (defaults to 10)
+  final int fadeOutDuration; // Duration in seconds to fade out (defaults to 3)
+
+  TextEvent({
+    required this.timeOffset,
+    required this.message,
+    this.locIndex,
+    this.duration = 10,
+    this.fadeOutDuration = 3,
+  });
+
+  // Helper to get the total duration including fade out
+  int get totalDuration => duration + fadeOutDuration;
+
+  // Helper to check if the event should be visible at a given time
+  bool isVisibleAt(int timeFromSegmentStart) {
+    return timeFromSegmentStart >= timeOffset && 
+           timeFromSegmentStart < (timeOffset + totalDuration);
+  }
+
+  // Helper to get opacity at a given time (1.0 = fully visible, 0.0 = invisible)
+  double getOpacityAt(int timeFromSegmentStart) {
+    if (!isVisibleAt(timeFromSegmentStart)) return 0.0;
+    
+    final timeInEvent = timeFromSegmentStart - timeOffset;
+    if (timeInEvent < duration) return 1.0;
+    
+    // Calculate fade out opacity
+    final fadeOutProgress = (timeInEvent - duration) / fadeOutDuration;
+    return 1.0 - fadeOutProgress;
+  }
+}
+
 class WorkoutData {
   final String? name;
+  final String? description;
+  final String? category;
+  final String? subcategory;
+  final String? authorIcon;
   final List<WorkoutSegment> segments;
 
   WorkoutData({
     this.name,
+    this.description,
+    this.category,
+    this.subcategory,
+    this.authorIcon,
     required this.segments,
   });
 }
@@ -35,6 +80,7 @@ class WorkoutSegment {
   final String? cadence; // Optional cadence target
   final String? cadenceLow; // Optional cadence range
   final String? cadenceHigh; // Optional cadence range
+  final List<TextEvent> textEvents; // Text events during the segment
 
   WorkoutSegment({
     required this.type,
@@ -50,13 +96,21 @@ class WorkoutSegment {
     this.cadence,
     this.cadenceLow,
     this.cadenceHigh,
-  });
+    List<TextEvent>? textEvents,
+  }) : textEvents = textEvents ?? [];
 
   // Helper to get current power at a specific point in the segment
   double getPowerAtTime(int secondsFromStart) {
     if (!isRamp) return powerLow;
     
     final progress = secondsFromStart / duration;
+    
+    // For cooldowns, we want to start at powerHigh and end at powerLow
+    if (type == SegmentType.cooldown) {
+      return powerHigh - (powerHigh - powerLow) * progress;
+    }
+    
+    // For all other segments, start at powerLow and end at powerHigh
     return powerLow + (powerHigh - powerLow) * progress;
   }
 
@@ -71,9 +125,25 @@ class WorkoutSegment {
     if (!isRamp) return powerLow;
     return powerLow < powerHigh ? powerLow : powerHigh;
   }
+
+  // Helper to get text events that should be visible at a given time
+  List<TextEvent> getVisibleTextEventsAt(int secondsFromStart) {
+    return textEvents.where((event) => event.isVisibleAt(secondsFromStart)).toList();
+  }
 }
 
 class WorkoutParser {
+  // Zone to power mapping (as percentage of FTP)
+  static const Map<String, Map<String, double>> zonePowerMapping = {
+    '1': {'low': 0.0, 'high': 0.55},   // Recovery
+    '2': {'low': 0.56, 'high': 0.75},  // Endurance
+    '3': {'low': 0.76, 'high': 0.90},  // Tempo
+    '4': {'low': 0.91, 'high': 1.05},  // Threshold
+    '5': {'low': 1.06, 'high': 1.20},  // VO2 Max
+    '6': {'low': 1.21, 'high': 1.50},  // Anaerobic
+    '7': {'low': 1.51, 'high': 2.00},  // Neuromuscular
+  };
+
   static WorkoutData parseZwoFile(String xmlContent) {
     final document = XmlDocument.parse(xmlContent);
     
@@ -85,9 +155,18 @@ class WorkoutParser {
     
     final workoutElement = workoutElements.first;
     
-    // Extract workout name
+    // Extract workout metadata
     final nameElements = document.findAllElements('name');
+    final descElements = document.findAllElements('description');
+    final categoryElements = document.findAllElements('category');
+    final subcategoryElements = document.findAllElements('subcategory');
+    final authorIconElements = document.findAllElements('authorIcon');
+    
     String? workoutName = nameElements.isNotEmpty ? nameElements.first.text : null;
+    String? description = descElements.isNotEmpty ? descElements.first.text : null;
+    String? category = categoryElements.isNotEmpty ? categoryElements.first.text : null;
+    String? subcategory = subcategoryElements.isNotEmpty ? subcategoryElements.first.text : null;
+    String? authorIcon = authorIconElements.isNotEmpty ? authorIconElements.first.text : null;
     
     // Process segments
     final List<WorkoutSegment> segments = [];
@@ -103,6 +182,10 @@ class WorkoutParser {
     
     return WorkoutData(
       name: workoutName,
+      description: description,
+      category: category,
+      subcategory: subcategory,
+      authorIcon: authorIcon,
       segments: segments,
     );
   }
@@ -137,9 +220,49 @@ class WorkoutParser {
     }
   }
 
+  static List<TextEvent> _parseTextEvents(XmlElement element) {
+    List<TextEvent> events = [];
+    
+    // Parse both TextEvent and textevent elements
+    for (var eventElement in [...element.findElements('TextEvent'), ...element.findElements('textevent')]) {
+      final timeOffset = int.tryParse(eventElement.getAttribute('timeoffset') ?? '0') ?? 0;
+      final message = eventElement.getAttribute('message') ?? '';
+      final locIndex = int.tryParse(eventElement.getAttribute('locIndex') ?? '');
+      final duration = int.tryParse(eventElement.getAttribute('duration') ?? '10') ?? 10;
+      
+      if (message.isNotEmpty) {
+        events.add(TextEvent(
+          timeOffset: timeOffset,
+          message: message,
+          locIndex: locIndex,
+          duration: duration,
+          fadeOutDuration: 3, // Fixed 3-second fade out
+        ));
+      }
+    }
+    
+    return events;
+  }
+
+  static double _getZonePower(String zone, {bool high = false}) {
+    final zoneData = zonePowerMapping[zone];
+    if (zoneData == null) return 0.0;
+    return high ? zoneData['high']! : zoneData['low']!;
+  }
+
   static WorkoutSegment _parseSteadyState(XmlElement element) {
     final duration = int.parse(element.getAttribute('Duration') ?? '0');
-    final power = double.parse(element.getAttribute('Power') ?? '0');
+    
+    // Check for Zone attribute first
+    final zone = element.getAttribute('Zone');
+    double power;
+    if (zone != null) {
+      power = _getZonePower(zone);
+    } else {
+      // If no Zone, try PowerLow/Power attributes
+      power = double.tryParse(element.getAttribute('PowerLow') ?? '') ?? 
+              double.tryParse(element.getAttribute('Power') ?? '0') ?? 0.0;
+    }
     
     return WorkoutSegment(
       type: SegmentType.steadyState,
@@ -148,13 +271,32 @@ class WorkoutParser {
       cadence: element.getAttribute('Cadence'),
       cadenceLow: element.getAttribute('CadenceLow'),
       cadenceHigh: element.getAttribute('CadenceHigh'),
+      textEvents: _parseTextEvents(element),
     );
   }
 
   static WorkoutSegment _parseRampSegment(XmlElement element, SegmentType segmentType) {
     final duration = int.parse(element.getAttribute('Duration') ?? '0');
-    final powerLow = double.parse(element.getAttribute('PowerLow') ?? '0');
-    final powerHigh = double.parse(element.getAttribute('PowerHigh') ?? '0');
+    
+    // Check for Zone attribute first
+    final zone = element.getAttribute('Zone');
+    double powerLow, powerHigh;
+    
+    if (zone != null) {
+      powerLow = _getZonePower(zone, high: false);
+      powerHigh = _getZonePower(zone, high: true);
+    } else {
+      // For cooldowns, if no power values are specified, use defaults
+      if (segmentType == SegmentType.cooldown && 
+          element.getAttribute('PowerLow') == null && 
+          element.getAttribute('PowerHigh') == null) {
+        powerLow = defaultCooldownEnd;    // End at 50% FTP
+        powerHigh = defaultCooldownStart; // Start at 70% FTP
+      } else {
+        powerLow = double.parse(element.getAttribute('PowerLow') ?? '0');
+        powerHigh = double.parse(element.getAttribute('PowerHigh') ?? '0');
+      }
+    }
     
     return WorkoutSegment(
       type: segmentType,
@@ -165,6 +307,7 @@ class WorkoutParser {
       cadence: element.getAttribute('Cadence'),
       cadenceLow: element.getAttribute('CadenceLow'),
       cadenceHigh: element.getAttribute('CadenceHigh'),
+      textEvents: _parseTextEvents(element),
     );
   }
 
@@ -172,10 +315,27 @@ class WorkoutParser {
     final repeat = int.parse(element.getAttribute('Repeat') ?? '1');
     final onDuration = int.parse(element.getAttribute('OnDuration') ?? '0');
     final offDuration = int.parse(element.getAttribute('OffDuration') ?? '0');
-    final onPower = double.parse(element.getAttribute('OnPower') ?? '0');
-    final offPower = double.parse(element.getAttribute('OffPower') ?? '0');
+    
+    // Check for Zone attributes first
+    final onZone = element.getAttribute('OnZone');
+    final offZone = element.getAttribute('OffZone');
+    
+    double onPower, offPower;
+    
+    if (onZone != null) {
+      onPower = _getZonePower(onZone);
+    } else {
+      onPower = double.parse(element.getAttribute('OnPower') ?? '0');
+    }
+    
+    if (offZone != null) {
+      offPower = _getZonePower(offZone);
+    } else {
+      offPower = double.parse(element.getAttribute('OffPower') ?? '0');
+    }
     
     final List<WorkoutSegment> intervals = [];
+    final textEvents = _parseTextEvents(element);
     
     for (var i = 0; i < repeat; i++) {
       // On interval
@@ -191,6 +351,7 @@ class WorkoutParser {
         cadence: element.getAttribute('Cadence'),
         cadenceLow: element.getAttribute('CadenceLow'),
         cadenceHigh: element.getAttribute('CadenceHigh'),
+        textEvents: textEvents,
       ));
       
       // Off interval
@@ -206,6 +367,7 @@ class WorkoutParser {
         cadence: element.getAttribute('Cadence'),
         cadenceLow: element.getAttribute('CadenceLow'),
         cadenceHigh: element.getAttribute('CadenceHigh'),
+        textEvents: textEvents,
       ));
     }
     
@@ -222,6 +384,7 @@ class WorkoutParser {
       cadence: element.getAttribute('Cadence'),
       cadenceLow: element.getAttribute('CadenceLow'),
       cadenceHigh: element.getAttribute('CadenceHigh'),
+      textEvents: _parseTextEvents(element),
     );
   }
 
@@ -235,6 +398,7 @@ class WorkoutParser {
       cadence: element.getAttribute('Cadence'),
       cadenceLow: element.getAttribute('CadenceLow'),
       cadenceHigh: element.getAttribute('CadenceHigh'),
+      textEvents: _parseTextEvents(element),
     );
   }
 }
