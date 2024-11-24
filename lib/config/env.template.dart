@@ -2,30 +2,23 @@
  * Environment Configuration Guide
  * -----------------------------
  * 
- * This file serves as a template for setting up environment variables in different contexts:
+ * This template shows how to set up environment variables for different contexts:
  * 
  * 1. Local Development:
+ *    Option A - Create env.local.dart:
  *    - Copy this file to 'env.local.dart'
  *    - Replace the placeholder values with your actual Strava API credentials
- *    - The app will automatically use these values when running locally
  * 
- * 2. CI/CD Builds (GitHub Actions & Xcode Cloud):
- *    - The CI pipeline will automatically create env.local.dart using repository secrets
- *    - No manual action required
+ *    Option B - Use dart-define:
+ *    - Run Flutter with environment variables:
+ *      flutter run --dart-define=STRAVA_CLIENT_ID=your_id --dart-define=STRAVA_CLIENT_SECRET=your_secret
  * 
- * Switching Between Environments:
- * -----------------------------
- * A. For Local Development:
- *    1. Create env.local.dart from this template
- *    2. Add your Strava credentials
- *    3. Run the app normally: flutter run
- * 
- * B. For Testing CI Environment Locally:
- *    Run the app with dart-define parameters:
- *    flutter run --dart-define=STRAVA_CLIENT_ID=your_id --dart-define=STRAVA_CLIENT_SECRET=your_secret
+ * 2. CI/CD Environment Setup:
+ *    - GitHub Actions: Already configured to use repository secrets
+ *    - Xcode Cloud: Add to build settings:
+ *      OTHER_ARGS="--dart-define=STRAVA_CLIENT_ID=${STRAVA_CLIENT_ID} --dart-define=STRAVA_CLIENT_SECRET=${STRAVA_CLIENT_SECRET}"
  * 
  * Security Notes:
- * -------------
  * - Never commit env.local.dart to version control
  * - Keep your API credentials secure
  * - Use repository secrets in GitHub/Xcode for CI/CD builds

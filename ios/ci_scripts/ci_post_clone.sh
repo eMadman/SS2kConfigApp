@@ -6,21 +6,9 @@ set -e
 # The default execution directory of this script is the ci_scripts directory.
 cd $CI_PRIMARY_REPOSITORY_PATH # change working directory to the root of your cloned repo.
 
-# Create config directory if it doesn't exist
-mkdir -p lib/config
-
-# Create env.local.dart with environment variables from Xcode Cloud
-# Use restricted permissions
-umask 077
-cat > lib/config/env.local.dart << EOL
-class Environment {
-  static const String stravaClientId = '${CI_STRAVA_CLIENT_ID}';
-  static const String stravaClientSecret = '${CI_STRAVA_CLIENT_SECRET}';
-  
-  static bool get hasStravaConfig => 
-    stravaClientId.isNotEmpty && stravaClientSecret.isNotEmpty;
-}
-EOL
+# Debug: Print available environment variables (secrets will be redacted)
+echo "Available environment variables:"
+env
 
 # Install Flutter using git.
 git clone https://github.com/flutter/flutter.git --depth 1 -b 3.22.3 $HOME/flutter
@@ -29,7 +17,7 @@ export PATH="$PATH:$HOME/flutter/bin"
 # Install Flutter artifacts for iOS (--ios), or macOS (--macos) platforms.
 flutter precache --ios
 
-# Install Flutter dependencies.
+# Install Flutter dependencies
 flutter pub get
 
 # Install CocoaPods using Homebrew.
@@ -39,7 +27,9 @@ brew install cocoapods
 # Install CocoaPods dependencies.
 cd ios && pod install # run `pod install` in the `ios` directory.
 
-# Clean up env.local.dart (use trap to ensure cleanup even if script fails)
-trap 'rm -f $CI_PRIMARY_REPOSITORY_PATH/lib/config/env.local.dart' EXIT
+# Note: When Xcode Cloud runs the actual build, it will use the build settings
+# configured in Xcode, which should include the --dart-define arguments:
+# --dart-define=STRAVA_CLIENT_ID=${STRAVA_CLIENT_ID}
+# --dart-define=STRAVA_CLIENT_SECRET=${STRAVA_CLIENT_SECRET}
 
 exit 0
