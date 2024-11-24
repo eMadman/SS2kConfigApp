@@ -12,6 +12,7 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:app_links/app_links.dart';
 
 import 'services/strava_service.dart';
+import 'config/env.dart';
 //import 'theme/color_schemes.g.dart';
 import 'screens/bluetooth_off_screen.dart';
 import 'screens/scan_screen.dart';
@@ -23,9 +24,14 @@ import 'dart:convert';
 void main() async {
   FlutterBluePlus.setLogLevel(LogLevel.verbose, color: true);
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Load theme
   final themeStr = await rootBundle.loadString('assets/appainter_theme.json');
   final themeJson = jsonDecode(themeStr);
   final theme = ThemeDecoder.decodeThemeData(themeJson)!;
+
+  // Initialize environment configuration
+  Environment.init();
 
   runApp(SmartSpin2kApp(theme: theme));
 }
