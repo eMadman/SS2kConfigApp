@@ -60,17 +60,17 @@ jobs:
         with:
           flutter-version: '3.22.3'
 
-      # Create env.local.dart securely
+      # Debug environment variables
+      - name: Debug Environment Variables
+        run: |
+          echo "Checking environment variables (secrets will be masked):"
+          env | grep -i STRAVA || true
+          
       - name: Create env.local.dart
         run: |
-          # Ensure directory exists
           mkdir -p lib/config
-          
-          # Create file with restricted permissions
           umask 077
-          
-          # Write content without echoing to console
-          cat << 'EOL' > lib/config/env.local.dart
+          cat > lib/config/env.local.dart << EOL
           class Environment {
             static const String stravaClientId = '${{ secrets.STRAVA_CLIENT_ID }}';
             static const String stravaClientSecret = '${{ secrets.STRAVA_CLIENT_SECRET }}';
