@@ -80,11 +80,15 @@ class _WorkoutMetricRowState extends State<WorkoutMetricRow> {
         Widget content = ReorderableListView(
           scrollDirection: Axis.horizontal,
           onReorder: _handleReorder,
+          buildDefaultDragHandles: false,
           children: orderedMetrics.asMap().entries.map((entry) {
-            return Padding(
+            return ReorderableDragStartListener(
               key: ValueKey(entry.value.label),
-              padding: EdgeInsets.symmetric(horizontal: WorkoutPadding.metricHorizontal),
-              child: MetricBox(metric: entry.value),
+              index: entry.key,
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: WorkoutPadding.metricHorizontal),
+                child: MetricBox(metric: entry.value),
+              ),
             );
           }).toList(),
         );
@@ -152,6 +156,9 @@ class MetricBox extends StatelessWidget {
 
   double _calculateBoxWidth(String value) {
     double width = value.length * WorkoutSizes.metricCharacterWidth;
+    if (metric.unit != null) {
+      width += (metric.unit!.length * WorkoutSizes.metricCharacterWidth) + WorkoutSpacing.metricValueUnit;
+    }
     return width.clamp(WorkoutSizes.metricBoxMinWidth, WorkoutSizes.metricBoxMaxWidth);
   }
 
@@ -180,24 +187,31 @@ class MetricBox extends StatelessWidget {
             ),
           ),
           SizedBox(height: WorkoutSpacing.metricLabelValue),
-          Text(
-            metric.value,
-            style: TextStyle(
-              fontSize: valueFontSize,
-              fontWeight: WorkoutFontWeights.metricValue,
-              color: Theme.of(context).textTheme.bodyLarge?.color,
-            ),
-          ),
-          if (metric.unit != null) ...[
-            SizedBox(height: WorkoutSpacing.metricValueUnit),
-            Text(
-              metric.unit!,
-              style: TextStyle(
-                fontSize: WorkoutFontSizes.metricUnit,
-                color: Theme.of(context).textTheme.bodySmall?.color,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                metric.value,
+                style: TextStyle(
+                  fontSize: valueFontSize,
+                  fontWeight: WorkoutFontWeights.metricValue,
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                ),
               ),
-            ),
-          ],
+              if (metric.unit != null) ...[
+                SizedBox(width: WorkoutSpacing.metricValueUnit),
+                Text(
+                  metric.unit!,
+                  style: TextStyle(
+                    fontSize: WorkoutFontSizes.metricUnit,
+                    color: Theme.of(context).textTheme.bodySmall?.color,
+                  ),
+                ),
+              ],
+            ],
+          ),
         ],
       ),
     );
