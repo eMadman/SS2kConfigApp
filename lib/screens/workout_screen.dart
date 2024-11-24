@@ -12,6 +12,7 @@ import '../utils/workout/sounds.dart';
 import '../utils/workout/gpx_file_exporter.dart';
 import '../utils/workout/workout_file_manager.dart';
 import '../utils/workout/workout_tts_settings.dart';
+import '../utils/workout/workout_connected_accounts.dart';
 import '../utils/bledata.dart';
 import '../widgets/workout_library.dart';
 import '../widgets/audio_coach_dialog.dart';
@@ -336,6 +337,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
                 case 'audio':
                   _showAudioCoachDialog();
                   break;
+                case 'connected_accounts':
+                  WorkoutConnectedAccounts.showConnectedAccountsDialog(context);
+                  break;
               }
             },
             itemBuilder: (context) => [
@@ -376,6 +380,16 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
                     Icon(Icons.record_voice_over),
                     SizedBox(width: 8),
                     Text('Audio Coach'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'connected_accounts',
+                child: Row(
+                  children: [
+                    Icon(Icons.link),
+                    SizedBox(width: 8),
+                    Text('Connected Accounts'),
                   ],
                 ),
               ),
