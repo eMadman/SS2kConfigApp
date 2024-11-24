@@ -350,7 +350,13 @@ class WorkoutController extends ChangeNotifier {
             double targetPower;
 
             if (segment.isRamp) {
-              targetPower = segment.powerLow + (segment.powerHigh - segment.powerLow) * segmentProgress;
+              if (segment.type == SegmentType.cooldown) {
+                // For cooldowns, start at powerHigh and decrease to powerLow
+                targetPower = segment.powerHigh - (segment.powerHigh - segment.powerLow) * segmentProgress;
+              } else {
+                // For all other ramps, start at powerLow and increase to powerHigh
+                targetPower = segment.powerLow + (segment.powerHigh - segment.powerLow) * segmentProgress;
+              }
             } else {
               targetPower = segment.powerLow;
             }

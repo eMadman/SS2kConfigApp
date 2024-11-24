@@ -162,11 +162,11 @@ class WorkoutParser {
     final subcategoryElements = document.findAllElements('subcategory');
     final authorIconElements = document.findAllElements('authorIcon');
     
-    String? workoutName = nameElements.isNotEmpty ? nameElements.first.text : null;
-    String? description = descElements.isNotEmpty ? descElements.first.text : null;
-    String? category = categoryElements.isNotEmpty ? categoryElements.first.text : null;
-    String? subcategory = subcategoryElements.isNotEmpty ? subcategoryElements.first.text : null;
-    String? authorIcon = authorIconElements.isNotEmpty ? authorIconElements.first.text : null;
+    String? workoutName = nameElements.isNotEmpty ? nameElements.first.value : null;
+    String? description = descElements.isNotEmpty ? descElements.first.value : null;
+    String? category = categoryElements.isNotEmpty ? categoryElements.first.value : null;
+    String? subcategory = subcategoryElements.isNotEmpty ? subcategoryElements.first.value : null;
+    String? authorIcon = authorIconElements.isNotEmpty ? authorIconElements.first.value : null;
     
     // Process segments
     final List<WorkoutSegment> segments = [];
@@ -293,8 +293,17 @@ class WorkoutParser {
         powerLow = defaultCooldownEnd;    // End at 50% FTP
         powerHigh = defaultCooldownStart; // Start at 70% FTP
       } else {
-        powerLow = double.parse(element.getAttribute('PowerLow') ?? '0');
-        powerHigh = double.parse(element.getAttribute('PowerHigh') ?? '0');
+        double power1 = double.parse(element.getAttribute('PowerLow') ?? '0');
+        double power2 = double.parse(element.getAttribute('PowerHigh') ?? '0');
+        
+        // For cooldowns, ensure the higher number is powerHigh
+        if (segmentType == SegmentType.cooldown) {
+          powerHigh = power1 > power2 ? power1 : power2;
+          powerLow = power1 > power2 ? power2 : power1;
+        } else {
+          powerLow = power1;
+          powerHigh = power2;
+        }
       }
     }
     

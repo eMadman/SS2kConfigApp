@@ -44,8 +44,14 @@ class WorkoutPainter extends CustomPainter {
       if (segment.isRamp) {
         // Draw ramp segment
         final path = Path();
-        final startHeight = size.height - (segment.powerLow * ftpValue * heightScale);
-        final endHeight = size.height - (segment.powerHigh * ftpValue * heightScale);
+        
+        // For cooldowns, start at powerHigh and end at powerLow
+        // For all other ramps, start at powerLow and end at powerHigh
+        final startPower = segment.type == SegmentType.cooldown ? segment.powerHigh : segment.powerLow;
+        final endPower = segment.type == SegmentType.cooldown ? segment.powerLow : segment.powerHigh;
+        
+        final startHeight = size.height - (startPower * ftpValue * heightScale);
+        final endHeight = size.height - (endPower * ftpValue * heightScale);
         
         path.moveTo(currentX, size.height);
         path.lineTo(currentX, startHeight);
