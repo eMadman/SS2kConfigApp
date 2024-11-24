@@ -9,7 +9,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:app_links/app_links.dart';
 
+import 'services/strava_service.dart';
 //import 'theme/color_schemes.g.dart';
 import 'screens/bluetooth_off_screen.dart';
 import 'screens/scan_screen.dart';
@@ -42,6 +44,10 @@ class SmartSpin2kApp extends StatefulWidget {
 
 class _SmartSpin2kAppState extends State<SmartSpin2kApp> {
   BluetoothAdapterState _adapterState = BluetoothAdapterState.unknown;
+  late AppLinks _appLinks;
+  StreamSubscription? _linkSubscription;
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  final GlobalKey<ScaffoldMessengerState> _scaffoldKey = GlobalKey<ScaffoldMessengerState>();
 
   late StreamSubscription<BluetoothAdapterState> _adapterStateStateSubscription;
 
@@ -54,11 +60,90 @@ class _SmartSpin2kAppState extends State<SmartSpin2kApp> {
         setState(() {});
       }
     });
+    _initDeepLinkHandling();
+  }
+
+  Future<void> _initDeepLinkHandling() async {
+    _appLinks = AppLinks();
+
+    // Handle initial URI if the app was launched with one
+    final uri = await _appLinks.getInitialLink();
+    if (uri != null) {
+      _handleDeepLink(uri);
+    }
+
+    // Handle URI when app is already running
+    _linkSubscription = _appLinks.uriLinkStream.listen((uri) {
+      _handleDeepLink(uri);
+    }, onError: (err) {
+      debugPrint('Deep link error: $err');
+    });
+  }
+
+  void _handleDeepLink(Uri uri) {
+    debugPrint('Handling deep link: ${uri.toString()}');
+    
+    // Handle Strava OAuth callback
+    if (uri.host == 'localhost') {
+      final code = uri.queryParameters['code'];
+      final error = uri.queryParameters['error'];
+      
+      if (error != null) {
+        debugPrint('Strava auth error: $error');
+        _scaffoldKey.currentState?.showSnackBar(
+          SnackBar(
+            content: Text('Strava authentication error: $error'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      if (code != null) {
+        // Show loading dialog
+        showDialog(
+          context: _navigatorKey.currentContext!,
+          barrierDismissible: false,
+          builder: (context) => const AlertDialog(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Connecting to Strava...'),
+              ],
+            ),
+          ),
+        );
+
+        StravaService.handleAuthCallback(code).then((success) {
+          // Close loading dialog
+          Navigator.of(_navigatorKey.currentContext!).pop();
+          
+          if (success && mounted) {
+            _scaffoldKey.currentState?.showSnackBar(
+              const SnackBar(
+                content: Text('Successfully connected to Strava'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          } else if (mounted) {
+            _scaffoldKey.currentState?.showSnackBar(
+              const SnackBar(
+                content: Text('Failed to connect to Strava'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        });
+      }
+    }
   }
 
   @override
   void dispose() {
     _adapterStateStateSubscription.cancel();
+    _linkSubscription?.cancel();
     super.dispose();
   }
 
@@ -68,11 +153,15 @@ class _SmartSpin2kAppState extends State<SmartSpin2kApp> {
         ? const ScanScreen()
         : BluetoothOffScreen(adapterState: _adapterState);
 
-    return MaterialApp(
-      themeMode: ThemeMode.system,
-      theme: widget.theme,
-      home: screen,
-      navigatorObservers: [BluetoothAdapterStateObserver()],
+    return ScaffoldMessenger(
+      key: _scaffoldKey,
+      child: MaterialApp(
+        navigatorKey: _navigatorKey,
+        themeMode: ThemeMode.system,
+        theme: widget.theme,
+        home: screen,
+        navigatorObservers: [BluetoothAdapterStateObserver()],
+      ),
     );
   }
 }

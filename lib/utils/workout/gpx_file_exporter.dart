@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../services/strava_service.dart';
 import 'workout_controller.dart';
 import 'bike_shape_generator.dart';
 import 'gpx_to_fit.dart';
@@ -78,28 +79,39 @@ ${bikeTrackPoints.map((point) => '''   <trkpt lat="${point.lat}" lon="${point.lo
   }
 
   static Future<void> showExportDialog(BuildContext context, WorkoutController workoutController, String? currentWorkoutContent) async {
-    final bool? shouldExport = await showDialog<bool>(
+    final isStravaConnected = await StravaService.isAuthenticated();
+
+    final String? exportChoice = await showDialog<String>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Export Workout'),
-          content: const Text('Would you like to export your workout?'),
+          content: const Text('How would you like to export your workout?'),
           actions: <Widget>[
             TextButton(
-              child: const Text('NO'),
-              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('CANCEL'),
+              onPressed: () => Navigator.of(context).pop('cancel'),
             ),
+            if (isStravaConnected)
+              TextButton(
+                child: const Text('UPLOAD TO STRAVA'),
+                onPressed: () => Navigator.of(context).pop('strava'),
+              ),
             TextButton(
-              child: const Text('YES'),
-              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('SAVE FILE'),
+              onPressed: () => Navigator.of(context).pop('save'),
             ),
           ],
         );
       },
     );
 
-    if (shouldExport == true) {
-      await exportWorkoutFile(context, workoutController);
+    if (exportChoice == 'save' || exportChoice == 'strava') {
+      await exportWorkoutFile(
+        context, 
+        workoutController,
+        uploadToStrava: exportChoice == 'strava',
+      );
     }
 
     // Reset workout position to beginning
@@ -108,14 +120,19 @@ ${bikeTrackPoints.map((point) => '''   <trkpt lat="${point.lat}" lon="${point.lo
     }
   }
 
-  static Future<void> exportWorkoutFile(BuildContext context, WorkoutController workoutController) async {
+  static Future<void> exportWorkoutFile(
+    BuildContext context, 
+    WorkoutController workoutController, 
+    {bool uploadToStrava = false}
+  ) async {
     try {
       final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
       final gpxFileName = 'workout_${timestamp}.gpx';
+      final workoutName = workoutController.workoutName ?? 'Unnamed Workout';
       
       // Generate GPX content using collected track points
       final gpxContent = await generateGpxContent(
-        workoutController.workoutName ?? 'Unnamed Workout',
+        workoutName,
         workoutController.trackPoints,
       );
 
@@ -153,7 +170,32 @@ ${bikeTrackPoints.map((point) => '''   <trkpt lat="${point.lat}" lon="${point.lo
         // Convert GPX to FIT
         final fitFilePath = await GpxToFitConverter.convertAndCleanup(gpxFile.path);
 
-        if (context.mounted) {
+        if (uploadToStrava) {
+          if (context.mounted) {
+            // Show uploading indicator
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Uploading to Strava...'),
+                duration: Duration(seconds: 1),
+              ),
+            );
+          }
+
+          final success = await StravaService.uploadActivity(
+            fitFilePath,
+            workoutName,
+            'Workout completed using SmartSpin2k',
+          );
+
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(success ? 'Successfully uploaded to Strava' : 'Failed to upload to Strava'),
+                backgroundColor: success ? Colors.green : Colors.red,
+              ),
+            );
+          }
+        } else if (context.mounted) {
           final bool? shouldShare = await showDialog<bool>(
             context: context,
             builder: (BuildContext context) {
@@ -198,7 +240,9 @@ ${bikeTrackPoints.map((point) => '''   <trkpt lat="${point.lat}" lon="${point.lo
               backgroundColor: Colors.orange,
             ),
           );
-          await Share.shareXFiles([XFile(gpxFile.path)]);
+          if (!uploadToStrava) {
+            await Share.shareXFiles([XFile(gpxFile.path)]);
+          }
         }
       }
     } catch (e) {

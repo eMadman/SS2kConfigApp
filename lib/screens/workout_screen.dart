@@ -55,7 +55,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
     super.initState();
     WakelockPlus.enable();
     bleData = BLEDataManager.forDevice(widget.device);
-    _workoutController = WorkoutController(bleData);
+    _workoutController = WorkoutController(bleData, widget.device);
     _initTTSSettings();
 
     _metricsAndSummaryFadeController = AnimationController(

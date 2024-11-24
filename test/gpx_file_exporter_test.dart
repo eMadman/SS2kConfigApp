@@ -1,9 +1,20 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xml/xml.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import '../lib/utils/workout/gpx_file_exporter.dart';
 import '../lib/utils/workout/workout_controller.dart';
 import '../lib/utils/bledata.dart';
+
+// Mock BluetoothDevice for testing
+class MockBluetoothDevice extends BluetoothDevice {
+  MockBluetoothDevice() : super(
+    remoteId: DeviceIdentifier('00:00:00:00:00:00'),
+  );
+
+  @override
+  bool get isConnected => true;
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -29,9 +40,10 @@ void main() {
       workoutData.add((time: time, power: power, hr: hr, cadence: cad));
     }
 
-    // Create a WorkoutController with mock BLEData
+    // Create a WorkoutController with mock BLEData and mock BluetoothDevice
     final bleData = BLEData();
-    final workoutController = WorkoutController(bleData);
+    final mockDevice = MockBluetoothDevice();
+    final workoutController = WorkoutController(bleData, mockDevice);
 
     // Simulate the workout by feeding data points
     for (final data in workoutData) {

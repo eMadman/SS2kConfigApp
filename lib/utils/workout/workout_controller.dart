@@ -6,6 +6,7 @@ import '../ftmsControlPoint.dart';
 import 'workout_parser.dart';
 import 'workout_storage.dart';
 import 'sounds.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 class TrackPoint {
   final DateTime timestamp;
@@ -30,6 +31,10 @@ class TrackPoint {
 }
 
 class WorkoutController extends ChangeNotifier {
+  // Static map to store device-specific controllers
+  static final Map<String, WorkoutController> _instances = {};
+  bool _isDisposed = false;
+
   List<WorkoutSegment> segments = [];
   String? workoutName;
   double maxPower = 0;
@@ -42,6 +47,7 @@ class WorkoutController extends ChangeNotifier {
   int elapsedSeconds = 0;
   int currentSegmentTimeRemaining = 0;
   final BLEData bleData;
+  final BluetoothDevice device;
   bool _isCountingDown = false;
   String? _currentWorkoutContent;
   double _totalDistance = 0; // Track total distance in meters
@@ -53,10 +59,33 @@ class WorkoutController extends ChangeNotifier {
   DateTime? _workoutStartTime;
   DateTime? _lastTrackPointTime;
 
-  WorkoutController(this.bleData) {
-    // Reset simulation parameters on initialization
+  // Factory constructor to get device-specific instance
+  factory WorkoutController(BLEData bleData, BluetoothDevice device) {
+    final deviceId = device.remoteId.str;
+    if (!_instances.containsKey(deviceId)) {
+      _instances[deviceId] = WorkoutController._internal(bleData, device);
+    }
+    return _instances[deviceId]!;
+  }
+
+  WorkoutController._internal(this.bleData, this.device) {
     _resetSimulationParameters();
     _initializeController();
+  }
+
+  // Override dispose to only mark as disposed
+  @override
+  void dispose() {
+    _isDisposed = true;
+    super.dispose();
+  }
+
+  // Method to cleanup when completely done with a device
+  void cleanup() {
+    progressTimer?.cancel();
+    final deviceId = device.remoteId.str;
+    _instances.remove(deviceId);
+    super.dispose();
   }
 
   Future<void> _initializeController() async {
@@ -83,7 +112,7 @@ class WorkoutController extends ChangeNotifier {
     }
   }
 
-WorkoutSegment? get currentSegment {
+  WorkoutSegment? get currentSegment {
     if (segments.isEmpty) return null;
     int totalTime = 0;
     for (var segment in segments) {
@@ -144,7 +173,9 @@ WorkoutSegment? get currentSegment {
       _resetSimulationParameters();
     }
     _saveWorkoutState();
-    notifyListeners();
+    if (!_isDisposed) {
+      notifyListeners();
+    }
   }
 
   Future<void> stopWorkout() async {
@@ -152,7 +183,9 @@ WorkoutSegment? get currentSegment {
     progressTimer?.cancel();
     _resetSimulationParameters();
     _saveWorkoutState();
-    notifyListeners();
+    if (!_isDisposed) {
+      notifyListeners();
+    }
   }
 
   void skipToNextSegment() {
@@ -172,21 +205,24 @@ WorkoutSegment? get currentSegment {
           workoutSoundGenerator.workoutEndSound();
           _resetSimulationParameters();
           _saveWorkoutState();
-          notifyListeners();
+          if (!_isDisposed) {
+            notifyListeners();
+          }
           return;
         }
 
         // Skip to the start of the next segment
         progressPosition = (elapsedTime + segments[i].duration) / totalDuration;
         _saveWorkoutState();
-        notifyListeners();
+        if (!_isDisposed) {
+          notifyListeners();
+        }
         return;
       }
       elapsedTime += segments[i].duration;
     }
   }
   
-  // Modified loadWorkout to handle fresh loads vs. resumes
   void loadWorkout(String xmlContent, {bool isResume = false}) {
     try {
       final workoutData = WorkoutParser.parseZwoFile(xmlContent);
@@ -228,7 +264,9 @@ WorkoutSegment? get currentSegment {
       _resetSimulationParameters();
 
       _saveWorkoutState();
-      notifyListeners();
+      if (!_isDisposed) {
+        notifyListeners();
+      }
     } catch (e) {
       rethrow;
     }
@@ -245,6 +283,11 @@ WorkoutSegment? get currentSegment {
     }
 
     progressTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+      if (_isDisposed) {
+        timer.cancel();
+        return;
+      }
+
       progressPosition += 0.1 / totalDuration;
       elapsedSeconds = (progressPosition * totalDuration).round();
 
@@ -290,7 +333,9 @@ WorkoutSegment? get currentSegment {
         workoutSoundGenerator.workoutEndSound();
         _resetSimulationParameters();
         _saveWorkoutState();
-        notifyListeners();
+        if (!_isDisposed) {
+          notifyListeners();
+        }
         return;
       }
 
@@ -328,7 +373,9 @@ WorkoutSegment? get currentSegment {
       }
 
       _saveWorkoutState();
-      notifyListeners();
+      if (!_isDisposed) {
+        notifyListeners();
+      }
     });
   }
 
@@ -385,7 +432,9 @@ WorkoutSegment? get currentSegment {
     if (newValue != null) {
       ftpValue = newValue;
       await WorkoutStorage.saveFTP(ftpValue);
-      notifyListeners();
+      if (!_isDisposed) {
+        notifyListeners();
+      }
     }
   }
 
