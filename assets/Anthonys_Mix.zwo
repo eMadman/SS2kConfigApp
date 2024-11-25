@@ -1,28 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <workout_file>
     <author>Anthony Doud</author>
     <name>Anthony&apos;s Mix</name>
-    <description></description>
+    <description>A varied workout mixing steady state, intervals, and ramps to improve your overall fitness. Features a progressive warmup, mixed intensity intervals, and a gentle cooldown.</description>
     <sportType>bike</sportType>
     <tags>
     </tags>
     <workout>
-        <Warmup Duration="300" PowerLow="0.25" PowerHigh="0.75"/>
-        <SteadyState Duration="60" Power="0.95"/>
-        <SteadyState Duration="60" Power="0.65"/>
-        <SteadyState Duration="60" Power="0.95"/>
-        <IntervalsT Repeat="2" OnDuration="60" OffDuration="60" OnPower="0.75" OffPower="0.5"/>
-        <SteadyState Duration="300" Power="0.65"/>
-        <SteadyState Duration="300" Power="0.95"/>
-        <SteadyState Duration="300" Power="0.65"/>
-        <Ramp Duration="300" PowerLow="0.65" PowerHigh="0.95"/>
-        <Ramp Duration="300" PowerLow="0.95" PowerHigh="0.5"/>
-        <SteadyState Duration="60" Power="1.25"/>
-        <SteadyState Duration="150" Power="0.5"/>
-        <SteadyState Duration="60" Power="1.25"/>
-        <SteadyState Duration="150" Power="0.5"/>
-        <SteadyState Duration="60" Power="1.25"/>
-        <SteadyState Duration="150" Power="0.5"/>
-        <SteadyState Duration="150" Power="0.95"/>
-        <Cooldown Duration="600" PowerLow="0.95" PowerHigh="0.25"/>
+        <Warmup Duration="300" PowerLow="0.25" PowerHigh="0.75">
+            <textevent timeoffset="0" message="Welcome to Anthony's Mix! Let's start with a progressive warmup to get those legs moving." />
+            <textevent timeoffset="60" message="Nice and easy to start - we'll gradually increase the intensity over these 5 minutes." />
+            <textevent timeoffset="180" message="Keep spinning smoothly. We've got some fun intervals ahead, so let's get properly warmed up!" />
+            <textevent timeoffset="270" message="Almost done with the warmup. Coming up: some short efforts at 95% FTP to wake up those legs!" />
+        </Warmup>
+        <SteadyState Duration="60" Power="0.95">
+            <textevent timeoffset="0" message="First effort! Push those pedals at 95% FTP." />
+            <textevent timeoffset="45" message="15 seconds - finish strong!" />
+        </SteadyState>
+        <SteadyState Duration="60" Power="0.65">
+            <textevent timeoffset="0" message="Quick recovery. Keep those legs moving." />
+        </SteadyState>
+        <SteadyState Duration="60" Power="0.95">
+            <textevent timeoffset="0" message="Back at it! Second effort at 95%." />
+            <textevent timeoffset="45" message="Drive it home!" />
+        </SteadyState>
+        <IntervalsT Repeat="2" OnDuration="60" OffDuration="60" OnPower="0.75" OffPower="0.5">
+            <textevent timeoffset="0" message="Now for some moderate intervals. These build your aerobic engine!" />
+            <textevent timeoffset="60" message="Nice work! Quick recovery." />
+            <textevent timeoffset="120" message="Last interval of this set - keep it smooth!" />
+        </IntervalsT>
+        <SteadyState Duration="300" Power="0.65">
+            <textevent timeoffset="0" message="Time for a steady recovery block. Catch your breath and hydrate!" />
+            <textevent timeoffset="240" message="Get ready! Coming up is a solid 5-minute effort at 95% FTP." />
+        </SteadyState>
+        <SteadyState Duration="300" Power="0.95">
+            <textevent timeoffset="0" message="Here we go! Find your rhythm and settle in." />
+            <textevent timeoffset="120" message="Halfway through! You're looking strong!" />
+            <textevent timeoffset="240" message="Final minute - maintain that power!" />
+        </SteadyState>
+        <SteadyState Duration="300" Power="0.65">
+            <textevent timeoffset="0" message="Well done! Take this recovery - you've earned it." />
+            <textevent timeoffset="240" message="Next up: a progressive ramp from 65% to 95%. Time to climb!" />
+        </SteadyState>
+        <Ramp Duration="300" PowerLow="0.65" PowerHigh="0.95">
+            <textevent timeoffset="0" message="Starting our climb! Power will gradually increase." />
+            <textevent timeoffset="150" message="Halfway up! Keep that smooth pedal stroke." />
+            <textevent timeoffset="270" message="Almost to the top - you've got this!" />
+        </Ramp>
+        <Ramp Duration="300" PowerLow="0.95" PowerHigh="0.5">
+            <textevent timeoffset="0" message="Now we're heading back down - but keep those legs engaged!" />
+            <textevent timeoffset="240" message="Get ready for the final push - three short power intervals coming up!" />
+        </Ramp>
+        <SteadyState Duration="60" Power="1.25">
+            <textevent timeoffset="0" message="First power interval! Give it everything!" />
+            <textevent timeoffset="45" message="15 seconds - push push push!" />
+        </SteadyState>
+        <SteadyState Duration="150" Power="0.5">
+            <textevent timeoffset="0" message="Great effort! Recover and prepare for the next one." />
+            <textevent timeoffset="120" message="30 seconds until we go again!" />
+        </SteadyState>
+        <SteadyState Duration="60" Power="1.25">
+            <textevent timeoffset="0" message="Second power interval - you know what to do!" />
+            <textevent timeoffset="45" message="Finish strong!" />
+        </SteadyState>
+        <SteadyState Duration="150" Power="0.5">
+            <textevent timeoffset="0" message="One more to go - you're almost there!" />
+            <textevent timeoffset="120" message="Final interval coming up - make it your best!" />
+        </SteadyState>
+        <SteadyState Duration="60" Power="1.25">
+            <textevent timeoffset="0" message="Last interval - empty the tank!" />
+            <textevent timeoffset="30" message="Halfway - dig deep!" />
+            <textevent timeoffset="45" message="Final push to the finish!" />
+        </SteadyState>
+        <SteadyState Duration="150" Power="0.5">
+            <textevent timeoffset="0" message="Outstanding work! Time to bring the heart rate down." />
+            <textevent timeoffset="120" message="One last steady effort before the cooldown." />
+        </SteadyState>
+        <SteadyState Duration="150" Power="0.95">
+            <textevent timeoffset="0" message="Final steady effort - you're looking strong!" />
+            <textevent timeoffset="120" message="30 seconds - then we'll cool it down." />
+        </SteadyState>
+        <Cooldown Duration="600" PowerLow="0.95" PowerHigh="0.25">
+            <textevent timeoffset="0" message="Excellent work today! Time for a well-deserved cooldown." />
+            <textevent timeoffset="60" message="Gradually reducing the power - keep those legs spinning." />
+            <textevent timeoffset="300" message="Halfway through the cooldown. Great session today!" />
+            <textevent timeoffset="540" message="One minute left - spin out those legs." />
+            <textevent timeoffset="590" message="Thanks for pushing hard today - see you next time!" />
+        </Cooldown>
     </workout>
 </workout_file>
