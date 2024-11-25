@@ -87,7 +87,7 @@ class _SmartSpin2kAppState extends State<SmartSpin2kApp> {
     debugPrint('Handling deep link: ${uri.toString()}');
     
     // Handle Strava OAuth callback
-    if (uri.host == 'localhost') {
+    if (uri.host == 'redirect' || uri.host == 'localhost') {
       final code = uri.queryParameters['code'];
       final error = uri.queryParameters['error'];
       
@@ -103,6 +103,8 @@ class _SmartSpin2kAppState extends State<SmartSpin2kApp> {
       }
 
       if (code != null) {
+        debugPrint('Received auth code: $code');
+        
         // Show loading dialog
         showDialog(
           context: _navigatorKey.currentContext!,
@@ -120,6 +122,8 @@ class _SmartSpin2kAppState extends State<SmartSpin2kApp> {
         );
 
         StravaService.handleAuthCallback(code).then((success) {
+          debugPrint('Auth callback result: $success');
+          
           // Close loading dialog
           Navigator.of(_navigatorKey.currentContext!).pop();
           

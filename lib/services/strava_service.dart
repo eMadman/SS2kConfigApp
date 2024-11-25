@@ -1,14 +1,18 @@
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher_string.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../config/env.dart';
 
 class StravaService {
   static const String _baseUrl = 'https://www.strava.com/api/v3';
   static const String _authUrl = 'https://www.strava.com/oauth/authorize';
+  static const String _mobileAuthUrl = 'https://www.strava.com/oauth/mobile/authorize';
   static const String _tokenUrl = 'https://www.strava.com/oauth/token';
+  static const String _redirectUri = 'smartspin2k://redirect';
   
   // Keys for storing tokens in SharedPreferences
   static const String _accessTokenKey = 'strava_access_token';
@@ -107,46 +111,59 @@ class StravaService {
       ),
     );
 
-    final url = '$_authUrl?'
-        'client_id=${Environment.stravaClientId}&'
-        'redirect_uri=http://localhost&'
-        'response_type=code&'
-        'approval_prompt=force&'
-        'scope=activity:write,read&'
-        'mobile=true';
+    if (Platform.isIOS) {
+      // Try Strava app URL scheme first
+      final stravaAppUrl = Uri.parse('strava://oauth/mobile/authorize')
+          .replace(queryParameters: {
+        'client_id': Environment.stravaClientId,
+        'redirect_uri': _redirectUri,
+        'response_type': 'code',
+        'approval_prompt': 'auto',
+        'scope': 'activity:write,read',
+      });
 
-    debugPrint('Attempting to launch Strava auth URL');
-    debugPrint('Client ID: ${Environment.stravaClientId}');
-    debugPrint('URL: $url');
-
-    try {
-      if (await canLaunchUrlString(url)) {
-        final result = await launchUrlString(
-          url,
-          mode: LaunchMode.externalApplication,
-        );
-        debugPrint('URL launch result: $result');
+      debugPrint('Attempting to launch Strava app URL: ${stravaAppUrl.toString()}');
+      
+      if (await canLaunchUrl(stravaAppUrl)) {
+        await launchUrl(stravaAppUrl);
       } else {
-        debugPrint('Cannot launch URL: $url');
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Unable to launch Strava authentication. Please check your internet connection.'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      debugPrint('Error launching URL: $e');
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error launching Strava authentication: $e'),
-            backgroundColor: Colors.red,
+        // Fall back to web OAuth
+        final webUrl = Uri.parse(_mobileAuthUrl).replace(queryParameters: {
+          'client_id': Environment.stravaClientId,
+          'redirect_uri': _redirectUri,
+          'response_type': 'code',
+          'approval_prompt': 'auto',
+          'scope': 'activity:write,read',
+        });
+
+        debugPrint('Falling back to web URL: ${webUrl.toString()}');
+
+        await launchUrlString(
+          webUrl.toString(),
+          mode: LaunchMode.inAppWebView,
+          webViewConfiguration: const WebViewConfiguration(
+            enableJavaScript: true,
+            enableDomStorage: true,
           ),
         );
       }
+    } else if (Platform.isAndroid) {
+      // Use web OAuth for Android
+      final url = Uri.parse(_authUrl).replace(queryParameters: {
+        'client_id': Environment.stravaClientId,
+        'redirect_uri': _redirectUri,
+        'response_type': 'code',
+        'approval_prompt': 'force',
+        'scope': 'activity:write,read',
+        'mobile': 'true',
+      }).toString();
+
+      debugPrint('Launching Android auth URL: $url');
+
+      await launchUrlString(
+        url,
+        mode: LaunchMode.externalApplication,
+      );
     }
   }
 

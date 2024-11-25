@@ -68,18 +68,19 @@
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>smartspin2k</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>http</string>
+				<string>smartspin2k</string>
 			</array>
-			<key>CFBundleURLName</key>
-			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 		</dict>
 	</array>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
-		<string>https</string>
-		<string>http</string>
+		<string>strava</string>
 	</array>
 </dict>
 </plist>
