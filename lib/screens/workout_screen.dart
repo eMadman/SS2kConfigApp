@@ -55,6 +55,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
     super.initState();
     WakelockPlus.enable();
     bleData = BLEDataManager.forDevice(widget.device);
+    // Get existing controller instance or create new one
     _workoutController = WorkoutController(bleData, widget.device);
     _initTTSSettings();
 
@@ -84,7 +85,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       rwSubscription();
-      _loadDefaultWorkout();
+      // Only load default workout if no workout is currently loaded
+      if (_workoutController.segments.isEmpty) {
+        _loadDefaultWorkout();
+      }
     });
 
     _workoutController.addListener(() {
@@ -249,7 +253,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
     _zoomController.dispose();
     _connectionStateSubscription?.cancel();
     bleData.isReadingOrWriting.removeListener(_rwListener);
-    _workoutController.dispose();
     _scrollController.dispose();
     workoutSoundGenerator.dispose();
     _ttsSettings.dispose();
