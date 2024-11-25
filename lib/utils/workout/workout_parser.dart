@@ -144,6 +144,20 @@ class WorkoutParser {
     '7': {'low': 1.51, 'high': 2.00},  // Neuromuscular
   };
 
+  // Helper method to parse duration strings that might be floating point
+  static int _parseDuration(String? durationStr) {
+    if (durationStr == null) return 0;
+    try {
+      // Parse as double first to handle floating point values
+      final double durationDouble = double.parse(durationStr);
+      // Round to nearest integer
+      return durationDouble.round();
+    } catch (e) {
+      // If parsing fails, return 0 as a safe default
+      return 0;
+    }
+  }
+
   static WorkoutData parseZwoFile(String xmlContent) {
     final document = XmlDocument.parse(xmlContent);
     
@@ -246,10 +260,10 @@ class WorkoutParser {
     
     // Parse both TextEvent and textevent elements
     for (var eventElement in [...element.findElements('TextEvent'), ...element.findElements('textevent')]) {
-      final timeOffset = int.tryParse(eventElement.getAttribute('timeoffset') ?? '0') ?? 0;
+      final timeOffset = _parseDuration(eventElement.getAttribute('timeoffset')) ?? 0;
       final message = eventElement.getAttribute('message') ?? '';
       final locIndex = int.tryParse(eventElement.getAttribute('locIndex') ?? '');
-      final duration = int.tryParse(eventElement.getAttribute('duration') ?? '10') ?? 10;
+      final duration = _parseDuration(eventElement.getAttribute('duration')) ?? 10;
       
       if (message.isNotEmpty) {
         events.add(TextEvent(
@@ -272,7 +286,7 @@ class WorkoutParser {
   }
 
   static WorkoutSegment _parseSteadyState(XmlElement element) {
-    final duration = int.parse(element.getAttribute('Duration') ?? '0');
+    final duration = _parseDuration(element.getAttribute('Duration'));
     
     // Check for Zone attribute first
     final zone = element.getAttribute('Zone');
@@ -297,7 +311,7 @@ class WorkoutParser {
   }
 
   static WorkoutSegment _parseRampSegment(XmlElement element, SegmentType segmentType) {
-    final duration = int.parse(element.getAttribute('Duration') ?? '0');
+    final duration = _parseDuration(element.getAttribute('Duration'));
     
     // Check for Zone attribute first
     final zone = element.getAttribute('Zone');
@@ -342,9 +356,9 @@ class WorkoutParser {
   }
 
   static List<WorkoutSegment> _parseIntervals(XmlElement element) {
-    final repeat = int.parse(element.getAttribute('Repeat') ?? '1');
-    final onDuration = int.parse(element.getAttribute('OnDuration') ?? '0');
-    final offDuration = int.parse(element.getAttribute('OffDuration') ?? '0');
+    final repeat = _parseDuration(element.getAttribute('Repeat')) ?? 1;
+    final onDuration = _parseDuration(element.getAttribute('OnDuration'));
+    final offDuration = _parseDuration(element.getAttribute('OffDuration'));
     
     // Check for Zone attributes first
     final onZone = element.getAttribute('OnZone');
@@ -405,7 +419,7 @@ class WorkoutParser {
   }
 
   static WorkoutSegment _parseFreeRide(XmlElement element) {
-    final duration = int.parse(element.getAttribute('Duration') ?? '0');
+    final duration = _parseDuration(element.getAttribute('Duration'));
     
     return WorkoutSegment(
       type: SegmentType.freeRide,
@@ -419,7 +433,7 @@ class WorkoutParser {
   }
 
   static WorkoutSegment _parseMaxEffort(XmlElement element) {
-    final duration = int.parse(element.getAttribute('Duration') ?? '0');
+    final duration = _parseDuration(element.getAttribute('Duration'));
     
     return WorkoutSegment(
       type: SegmentType.maxEffort,
