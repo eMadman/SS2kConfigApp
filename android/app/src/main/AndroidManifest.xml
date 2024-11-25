@@ -40,7 +40,7 @@
          <activity
              android:name=".MainActivity"
              android:exported="true"
-             android:launchMode="singleTop"
+             android:launchMode="singleInstance"
              android:theme="@style/LaunchTheme"
              android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
              android:hardwareAccelerated="true"
@@ -62,9 +62,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data
-                    android:scheme="http"
-                    android:host="localhost" />
+                <data android:scheme="smartspin2k" android:host="redirect" />
             </intent-filter>
          </activity>
          <!-- Don't delete the meta-data below.

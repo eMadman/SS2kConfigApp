@@ -12,6 +12,7 @@ class StravaService {
   static const String _authUrl = 'https://www.strava.com/oauth/authorize';
   static const String _mobileAuthUrl = 'https://www.strava.com/oauth/mobile/authorize';
   static const String _tokenUrl = 'https://www.strava.com/oauth/token';
+  static const String _redirectUri = 'smartspin2k://redirect';
   
   // Keys for storing tokens in SharedPreferences
   static const String _accessTokenKey = 'strava_access_token';
@@ -115,23 +116,27 @@ class StravaService {
       final stravaAppUrl = Uri.parse('strava://oauth/mobile/authorize')
           .replace(queryParameters: {
         'client_id': Environment.stravaClientId,
-        'redirect_uri': 'smartspin2k://oauth/callback',
+        'redirect_uri': _redirectUri,
         'response_type': 'code',
         'approval_prompt': 'auto',
         'scope': 'activity:write,read',
       });
 
+      debugPrint('Attempting to launch Strava app URL: ${stravaAppUrl.toString()}');
+      
       if (await canLaunchUrl(stravaAppUrl)) {
         await launchUrl(stravaAppUrl);
       } else {
-        // Fall back to web OAuth using ASWebAuthenticationSession
+        // Fall back to web OAuth
         final webUrl = Uri.parse(_mobileAuthUrl).replace(queryParameters: {
           'client_id': Environment.stravaClientId,
-          'redirect_uri': 'smartspin2k://oauth/callback',
+          'redirect_uri': _redirectUri,
           'response_type': 'code',
           'approval_prompt': 'auto',
           'scope': 'activity:write,read',
         });
+
+        debugPrint('Falling back to web URL: ${webUrl.toString()}');
 
         await launchUrlString(
           webUrl.toString(),
@@ -143,14 +148,17 @@ class StravaService {
         );
       }
     } else if (Platform.isAndroid) {
-      // Use original Android flow
-      final url = '$_authUrl?'
-          'client_id=${Environment.stravaClientId}&'
-          'redirect_uri=http://localhost&'
-          'response_type=code&'
-          'approval_prompt=force&'
-          'scope=activity:write,read&'
-          'mobile=true';
+      // Use web OAuth for Android
+      final url = Uri.parse(_authUrl).replace(queryParameters: {
+        'client_id': Environment.stravaClientId,
+        'redirect_uri': _redirectUri,
+        'response_type': 'code',
+        'approval_prompt': 'force',
+        'scope': 'activity:write,read',
+        'mobile': 'true',
+      }).toString();
+
+      debugPrint('Launching Android auth URL: $url');
 
       await launchUrlString(
         url,
