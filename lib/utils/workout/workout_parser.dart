@@ -155,18 +155,39 @@ class WorkoutParser {
     
     final workoutElement = workoutElements.first;
     
-    // Extract workout metadata
-    final nameElements = document.findAllElements('name');
-    final descElements = document.findAllElements('description');
-    final categoryElements = document.findAllElements('category');
-    final subcategoryElements = document.findAllElements('subcategory');
-    final authorIconElements = document.findAllElements('authorIcon');
-    
-    String? workoutName = nameElements.isNotEmpty ? nameElements.first.value : null;
-    String? description = descElements.isNotEmpty ? descElements.first.value : null;
-    String? category = categoryElements.isNotEmpty ? categoryElements.first.value : null;
-    String? subcategory = subcategoryElements.isNotEmpty ? subcategoryElements.first.value : null;
-    String? authorIcon = authorIconElements.isNotEmpty ? authorIconElements.first.value : null;
+    // Extract workout metadata from root level
+    String? workoutName;
+    String? description;
+    String? category;
+    String? subcategory;
+    String? authorIcon;
+
+    // First try root level elements
+    for (var element in document.rootElement.childElements) {
+      switch (element.name.local.toLowerCase()) {
+        case 'name':
+          workoutName = element.innerText.trim();
+          break;
+        case 'description':
+          description = element.innerText.trim();
+          break;
+        case 'category':
+          category = element.innerText.trim();
+          break;
+        case 'subcategory':
+          subcategory = element.innerText.trim();
+          break;
+        case 'authoricon':
+          authorIcon = element.innerText.trim();
+          break;
+      }
+    }
+
+    // If not found at root level, try within workout element
+    if (workoutName == null) {
+      final nameElements = workoutElement.findElements('name');
+      workoutName = nameElements.isNotEmpty ? nameElements.first.innerText.trim() : null;
+    }
     
     // Process segments
     final List<WorkoutSegment> segments = [];

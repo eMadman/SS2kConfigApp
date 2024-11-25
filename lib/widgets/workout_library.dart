@@ -4,7 +4,7 @@ import '../utils/workout/workout_storage.dart';
 import '../utils/workout/workout_constants.dart';
 import '../utils/workout/workout_parser.dart';
 
-class WorkoutLibrary extends StatelessWidget {
+class WorkoutLibrary extends StatefulWidget {
   final bool selectionMode; // true for selection, false for deletion
   final Function(String content)? onWorkoutSelected;
   final Function(String name)? onWorkoutDeleted;
@@ -17,9 +17,28 @@ class WorkoutLibrary extends StatelessWidget {
   }) : super(key: key);
 
   @override
+  State<WorkoutLibrary> createState() => _WorkoutLibraryState();
+}
+
+class _WorkoutLibraryState extends State<WorkoutLibrary> {
+  Future<List<Map<String, dynamic>>>? _workoutsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _workoutsFuture = WorkoutStorage.getSavedWorkouts();
+  }
+
+  void _refreshWorkouts() {
+    setState(() {
+      _workoutsFuture = WorkoutStorage.getSavedWorkouts();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<Map<String, dynamic>>>(
-      future: WorkoutStorage.getSavedWorkouts(),
+      future: _workoutsFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -43,9 +62,13 @@ class WorkoutLibrary extends StatelessWidget {
             return _WorkoutTile(
               name: workout['name'],
               content: workout['content'],
-              selectionMode: selectionMode,
-              onSelected: onWorkoutSelected,
-              onDeleted: onWorkoutDeleted,
+              selectionMode: widget.selectionMode,
+              onSelected: widget.onWorkoutSelected,
+              onDeleted: (name) async {
+                await WorkoutStorage.deleteWorkout(name);
+                widget.onWorkoutDeleted?.call(name);
+                _refreshWorkouts();
+              },
             );
           },
         );
@@ -158,9 +181,9 @@ class _WorkoutTile extends StatelessWidget {
                             child: const Text('CANCEL'),
                           ),
                           TextButton(
-                            onPressed: () {
-                              onDeleted?.call(name);
+                            onPressed: () async {
                               Navigator.pop(context);
+                              await onDeleted?.call(name);
                             },
                             child: const Text('DELETE'),
                             style: TextButton.styleFrom(
