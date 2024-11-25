@@ -50,15 +50,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
   static const double previewMinutes = 40;
   static const double playingMinutes = 10;
 
-  @override
-  void initState() {
-    super.initState();
-    WakelockPlus.enable();
-    bleData = BLEDataManager.forDevice(widget.device);
-    // Get existing controller instance or create new one
-    _workoutController = WorkoutController(bleData, widget.device);
-    _initTTSSettings();
-
+  void _initializeAnimationControllers() {
     _metricsAndSummaryFadeController = AnimationController(
       duration: WorkoutDurations.fadeAnimation,
       vsync: this,
@@ -82,16 +74,32 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
       parent: _zoomController,
       curve: Curves.easeInOut,
     ));
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WakelockPlus.enable();
+    bleData = BLEDataManager.forDevice(widget.device);
+    _workoutController = WorkoutController(bleData, widget.device);
+    _initTTSSettings();
+    _initializeAnimationControllers();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       rwSubscription();
-      // Only load default workout if no workout is currently loaded
       if (_workoutController.segments.isEmpty) {
         _loadDefaultWorkout();
+      } else if (_workoutController.isPlaying && mounted) {
+        // If workout is already playing, forward the animations
+        _metricsAndSummaryFadeController.forward();
+        _textEventFadeController.forward();
+        _zoomController.forward();
       }
     });
 
     _workoutController.addListener(() {
+      if (!mounted) return;  // Skip animation updates if not mounted
+      
       if (_workoutController.isPlaying) {
         _metricsAndSummaryFadeController.forward();
         _textEventFadeController.forward();
@@ -113,9 +121,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
           });
         }
       }
-      setState(() {
-        _workoutName = _workoutController.workoutName;
-      });
+      if (mounted) {
+        setState(() {
+          _workoutName = _workoutController.workoutName;
+        });
+      }
     });
 
     Timer.periodic(const Duration(seconds: 15), (refreshTimer) {
@@ -135,15 +145,17 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
 
   Future<void> _initTTSSettings() async {
     _ttsSettings = await WorkoutTTSSettings.create();
-    setState(() {
-      _ttsInitialized = true;
-    });
+    if (mounted) {
+      setState(() {
+        _ttsInitialized = true;
+      });
+    }
   }
 
   Future<void> _loadDefaultWorkout() async {
     try {
       final content = await rootBundle.loadString('assets/Anthonys_Mix.zwo');
-      _workoutController.loadWorkout(content, isResume: false); // Explicitly set isResume to false
+      _workoutController.loadWorkout(content, isResume: false);
       _currentWorkoutContent = content;
       // Wait for the graph to be rendered
       await Future.delayed(const Duration(milliseconds: 100));
@@ -282,7 +294,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
                   selectionMode: selectionMode,
                   onWorkoutSelected: (content) {
                     Navigator.pop(context);
-                    _workoutController.loadWorkout(content, isResume: false); // Explicitly set isResume to false
+                    _workoutController.loadWorkout(content, isResume: false);
                     _currentWorkoutContent = content;
                   },
                   onWorkoutDeleted: (name) async {
