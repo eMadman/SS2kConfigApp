@@ -71,6 +71,7 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>http</string>
+				<string>https</string>
 			</array>
 			<key>CFBundleURLName</key>
 			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
@@ -81,5 +82,12 @@
 		<string>https</string>
 		<string>http</string>
 	</array>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
 </dict>
 </plist>

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
@@ -107,9 +108,14 @@ class StravaService {
       ),
     );
 
+    // Use different redirect URI and launch mode based on platform
+    final redirectUri = Platform.isAndroid 
+        ? 'http://localhost'  // Original redirect for Android
+        : 'http://localhost:8080';  // Specific port for iOS/macOS
+
     final url = '$_authUrl?'
         'client_id=${Environment.stravaClientId}&'
-        'redirect_uri=http://localhost&'
+        'redirect_uri=$redirectUri&'
         'response_type=code&'
         'approval_prompt=force&'
         'scope=activity:write,read&'
@@ -121,11 +127,23 @@ class StravaService {
 
     try {
       if (await canLaunchUrlString(url)) {
-        final result = await launchUrlString(
-          url,
-          mode: LaunchMode.externalApplication,
-        );
-        debugPrint('URL launch result: $result');
+        if (Platform.isAndroid) {
+          // Use external browser for Android
+          await launchUrlString(
+            url,
+            mode: LaunchMode.externalApplication,
+          );
+        } else {
+          // Use in-app WebView for iOS/macOS
+          await launchUrlString(
+            url,
+            mode: LaunchMode.inAppWebView,
+            webViewConfiguration: const WebViewConfiguration(
+              enableJavaScript: true,
+              enableDomStorage: true,
+            ),
+          );
+        }
       } else {
         debugPrint('Cannot launch URL: $url');
         if (context.mounted) {
