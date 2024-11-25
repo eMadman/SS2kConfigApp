@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:io' show Platform;
 import '../bledata.dart';
 import '../ftmsControlPoint.dart';
 import 'workout_parser.dart';
@@ -31,7 +32,7 @@ class TrackPoint {
 }
 
 class WorkoutController extends ChangeNotifier {
-  // Static map to store device-specific controllers
+ // Static map to store device-specific controllers
   static final Map<String, WorkoutController> _instances = {};
   bool _isDisposed = false;
 
@@ -153,7 +154,29 @@ class WorkoutController extends ChangeNotifier {
     }
   }
 
-  void togglePlayPause() {
+  Future<void> togglePlayPause() async {
+    // For iOS, ensure we reset simulation parameters before starting
+    if (Platform.isIOS && !isPlaying) {
+      // Try resetting parameters up to 3 times before starting
+      for (int i = 0; i < 3; i++) {
+        try {
+          await _resetSimulationParameters();
+          // Add a small delay to ensure parameters are reset
+          await Future.delayed(const Duration(milliseconds: 100));
+          break; // Break if successful
+        } catch (e) {
+          print('Error resetting simulation parameters (attempt ${i + 1}): $e');
+          if (i == 2) { // Last attempt failed
+            if (!_isDisposed) {
+              notifyListeners(); // Notify to update UI if needed
+            }
+            return; // Don't proceed with starting the workout
+          }
+          await Future.delayed(const Duration(milliseconds: 100));
+        }
+      }
+    }
+
     isPlaying = !isPlaying;
     if (isPlaying) {
       // Only reset these values if we're at the start of the workout
