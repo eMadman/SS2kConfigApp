@@ -59,7 +59,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
       duration: WorkoutDurations.fadeAnimation,
       vsync: this,
     );
-    
+
     _metricsAndSummaryFadeAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(_metricsAndSummaryFadeController);
     _textEventFadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(_textEventFadeController);
 
@@ -94,12 +94,16 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
         _metricsAndSummaryFadeController.forward();
         _textEventFadeController.forward();
         _zoomController.forward();
+      } else {
+        _metricsAndSummaryFadeController.animateBack(0);
+        _textEventFadeController.animateBack(0);
+        _zoomController.animateBack(0);
       }
     });
 
     _workoutController.addListener(() {
-      if (!mounted) return;  // Skip animation updates if not mounted
-      
+      if (!mounted) return; // Skip animation updates if not mounted
+
       if (_workoutController.isPlaying) {
         _metricsAndSummaryFadeController.forward();
         _textEventFadeController.forward();
