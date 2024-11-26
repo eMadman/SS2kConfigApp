@@ -86,3 +86,9 @@ pubspec.lock
 
 # Environment configuration
 lib/config/env.local.dart
+
+# iOS build artifacts
+ios/build/
+ios/**/XCBuildData/
+ios/**/DerivedData/
+**/TARGET@*
