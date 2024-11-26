@@ -47,8 +47,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
 
   late AnimationController _zoomController;
   late Animation<double> _zoomAnimation;
-  static const double previewMinutes = 40;
-  static const double playingMinutes = 10;
 
   void _initializeAnimationControllers() {
     _metricsAndSummaryFadeController = AnimationController(
@@ -56,7 +54,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
       vsync: this,
     );
     _textEventFadeController = AnimationController(
-      duration: WorkoutDurations.fadeAnimation,
+      duration: WorkoutDurations.textLinger,  // Total duration including delay and fade
       vsync: this,
     );
 
@@ -68,8 +66,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
       vsync: this,
     );
     _zoomAnimation = Tween<double>(
-      begin: previewMinutes,
-      end: playingMinutes,
+      begin: WorkoutDurations.previewMinutes,
+      end: WorkoutDurations.playingMinutes,
     ).animate(CurvedAnimation(
       parent: _zoomController,
       curve: Curves.easeInOut,
