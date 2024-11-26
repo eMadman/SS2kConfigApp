@@ -54,11 +54,17 @@ class FtmsData {
       if (onTargetPowerChanged != null) {
         onTargetPowerChanged!(value);
       }
+      // If target power is 0, switch to simulation mode with 0 incline
+      if (value == 0 && onModeChanged != null) {
+        onModeChanged!(true); // true indicates switch to simulation mode
+      }
     }
   }
 
   // Callback for target power changes
   void Function(int)? onTargetPowerChanged;
+  // Callback for mode changes (simulation vs target power)
+  void Function(bool)? onModeChanged;
 
   FtmsData({
     this.cadence = 0,
@@ -105,30 +111,50 @@ class BLEData {
 
   var customCharacteristic = customCharacteristicFramework;
 
-  setupConnection(BluetoothDevice device) async {
-    if (device.isConnected) {
-      await _discoverServices(device);
-      this.subscribed = false;
-      if (services.length > 1) {
-        await _findChar();
-        await updateCustomCharacter(device);
-        
-        // Set up target power change listener
-        ftmsData.onTargetPowerChanged = (int newPower) async {
-          if (ftmsControlPointCharacteristic != null) {
-            try {
-              await FTMSControlPoint.writeTargetPower(
-                ftmsControlPointCharacteristic!,
-                newPower,
-              );
-            } catch (e) {
-              print('Error writing target power to FTMS: $e');
-            }
+setupConnection(BluetoothDevice device) async {
+  if (device.isConnected) {
+    await _discoverServices(device);
+    this.subscribed = false;
+    if (services.length > 1) {
+      await _findChar();
+      await updateCustomCharacter(device);
+      
+      // Set up target power change listener
+      ftmsData.onTargetPowerChanged = (int newPower) async {
+        if (ftmsControlPointCharacteristic != null) {
+          try {
+            await FTMSControlPoint.writeTargetPower(
+              ftmsControlPointCharacteristic!,
+              newPower,
+            );
+          } catch (e) {
+            print('Error writing target power to FTMS: $e');
           }
-        };
-      }
+        }
+      };
+
+      // Set up mode change listener
+      ftmsData.onModeChanged = (bool toSimulation) async {
+        if (ftmsControlPointCharacteristic != null) {
+          try {
+            if (toSimulation) {
+              // Switch to simulation mode with 0 incline
+              await FTMSControlPoint.writeIndoorBikeSimulation(
+                ftmsControlPointCharacteristic!,
+                windSpeed: 0,
+                grade: 0,
+                crr: 0,
+                cw: 0,
+              );
+            }
+          } catch (e) {
+            print('Error switching FTMS mode: $e');
+          }
+        }
+      };
     }
   }
+}
 
   BluetoothCharacteristic getMyCharacteristic(BluetoothDevice device) {
     late BluetoothCharacteristic _char;

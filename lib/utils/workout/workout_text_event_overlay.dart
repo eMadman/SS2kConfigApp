@@ -56,11 +56,11 @@ class _WorkoutTextEventOverlayState extends State<WorkoutTextEventOverlay> {
                 event.message,
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: const Color.fromARGB(255, 51, 50, 50),
+                  color: const Color.fromARGB(255, 0, 0, 0),
                   shadows: [
                     Shadow(
                       blurRadius: 3.0,
-                      color: Colors.black.withOpacity(0.75),
+                      color: const Color.fromARGB(255, 48, 47, 47).withOpacity(0.75),
                       offset: const Offset(1.0, 1.0),
                     ),
                   ],

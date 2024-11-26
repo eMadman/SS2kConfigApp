@@ -384,6 +384,8 @@ class WorkoutController extends ChangeNotifier {
               targetPower = segment.powerLow;
             }
 
+            // Calculate target power in watts and update ftmsData
+            // When target power is 0, the BLEData class will handle switching to simulation mode
             bleData.ftmsData.targetERG = (targetPower * ftpValue).round();
             currentSegmentTimeRemaining = ((elapsedTime + segment.duration) - currentTime).round();
 

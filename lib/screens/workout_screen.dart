@@ -19,6 +19,7 @@ import '../widgets/audio_coach_dialog.dart';
 import '../utils/workout/workout_text_event_overlay.dart';
 import '../utils/workout/workout_controls.dart';
 import '../utils/workout/workout_summary.dart';
+import '../utils/ftmsControlPoint.dart';
 
 class WorkoutScreen extends StatefulWidget {
   final BluetoothDevice device;
@@ -47,8 +48,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
 
   late AnimationController _zoomController;
   late Animation<double> _zoomAnimation;
-  static const double previewMinutes = 40;
-  static const double playingMinutes = 10;
 
   void _initializeAnimationControllers() {
     _metricsAndSummaryFadeController = AnimationController(
@@ -56,10 +55,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
       vsync: this,
     );
     _textEventFadeController = AnimationController(
-      duration: WorkoutDurations.fadeAnimation,
+      duration: WorkoutDurations.textLinger, // Total duration including delay and fade
       vsync: this,
     );
-    
+
     _metricsAndSummaryFadeAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(_metricsAndSummaryFadeController);
     _textEventFadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(_textEventFadeController);
 
@@ -68,8 +67,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
       vsync: this,
     );
     _zoomAnimation = Tween<double>(
-      begin: previewMinutes,
-      end: playingMinutes,
+      begin: WorkoutDurations.previewMinutes,
+      end: WorkoutDurations.playingMinutes,
     ).animate(CurvedAnimation(
       parent: _zoomController,
       curve: Curves.easeInOut,
@@ -94,12 +93,16 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
         _metricsAndSummaryFadeController.forward();
         _textEventFadeController.forward();
         _zoomController.forward();
+      } else {
+        _metricsAndSummaryFadeController.animateBack(0);
+        _textEventFadeController.animateBack(0);
+        _zoomController.animateBack(0);
       }
     });
 
     _workoutController.addListener(() {
-      if (!mounted) return;  // Skip animation updates if not mounted
-      
+      if (!mounted) return; // Skip animation updates if not mounted
+
       if (_workoutController.isPlaying) {
         _metricsAndSummaryFadeController.forward();
         _textEventFadeController.forward();
@@ -210,6 +213,84 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
       builder: (context) => AudioCoachDialog(ttsSettings: _ttsSettings),
     );
   }
+
+  Future<void> _showCalibrationDialog() async {
+  bool isCalibrating = false;
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (BuildContext context) {
+      return StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Text('Calibration'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (!isCalibrating)
+                  const Text('Start pedaling until the SmartSpin2k knob starts to turn.\n\nPress Start when ready.'),
+                if (isCalibrating)
+                  const Text('Stop pedaling and wait for the calibration to complete.\n\nThis may take a few moments...'),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: const Text('CANCEL'),
+              ),
+              if (!isCalibrating)
+                TextButton(
+                  onPressed: () async {
+                    setState(() {
+                      isCalibrating = true;
+                    });
+                    
+                    try {
+                      // Get the FTMS Control Point characteristic from bleData
+                      final ftmsControlPointChar = bleData.ftmsControlPointCharacteristic;
+                      if (ftmsControlPointChar != null) {
+                        // Start the spin down procedure
+                        await FTMSControlPoint.spinDownControl(ftmsControlPointChar, true);
+                        
+                        // Wait for a response or timeout after 30 seconds
+                        await Future.delayed(const Duration(seconds: 30));
+                        
+                        if (mounted) {
+                          Navigator.of(context).pop();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Calibration completed'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        }
+                      } else {
+                        throw Exception('FTMS Control Point characteristic not found');
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        Navigator.of(context).pop();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Calibration failed: $e'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  child: const Text('START'),
+                ),
+            ],
+          );
+        },
+      );
+    },
+  );
+}
 
   void _updateScrollPosition() {
     if (!mounted || !_scrollController.hasClients) return;
@@ -355,9 +436,22 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
                 case 'connected_accounts':
                   WorkoutConnectedAccounts.showConnectedAccountsDialog(context);
                   break;
+                case 'calibrate':
+                  _showCalibrationDialog();
+                  break;
               }
             },
             itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'calibrate',
+                child: Row(
+                  children: [
+                    Icon(Icons.tune),
+                    SizedBox(width: 8),
+                    Text('Calibrate'),
+                  ],
+                ),
+              ),
               const PopupMenuItem(
                 value: 'import',
                 child: Row(

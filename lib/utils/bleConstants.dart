@@ -12,6 +12,7 @@ class FTMSOpCodes {
   static const int SET_TARGET_HEART_RATE = 0x06;
   static const int SET_TARGET_CADENCE = 0x14;
   static const int SET_INDOOR_BIKE_SIMULATION = 0x11;
+  static const int SPIN_DOWN_CONTROL = 0x13;
 
   // Session Control
   static const int START_OR_RESUME = 0x07;
@@ -36,6 +37,12 @@ class FTMSStopPauseParams {
   static const int PAUSE = 0x02;
 }
 
+// FTMS Spin Down Control Parameters
+class FTMSSpinDownParams {
+  static const int START = 0x01;
+  static const int IGNORE = 0x02;
+}
+
 // FTMS Characteristic UUIDs
 const String FTMS_CONTROL_POINT_CHARACTERISTIC_UUID = '00002AD9-0000-1000-8000-00805F9B34FB';
 
@@ -50,6 +57,7 @@ class FTMSDataConfig {
   static const int TARGET_CADENCE_LENGTH = 3;  // 1 byte opcode + 2 bytes cadence value
   static const int STOP_PAUSE_LENGTH = 2;  // 1 byte opcode + 1 byte stop/pause parameter
   static const int INDOOR_BIKE_SIMULATION_LENGTH = 7;  // 1 byte opcode + 2 bytes wind speed + 2 bytes grade + 1 byte Crr + 1 byte Cw
+  static const int SPIN_DOWN_CONTROL_LENGTH = 2;  // 1 byte opcode + 1 byte control parameter
 
   // Data Resolutions
   static const double SPEED_RESOLUTION = 0.01;  // km/h

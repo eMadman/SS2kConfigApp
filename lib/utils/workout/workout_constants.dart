@@ -3,17 +3,17 @@ import 'package:flutter/material.dart';
 /// Base size constant that controls the overall scale of metric boxes
 class WorkoutMetricScale {
   /// Base size that all metric box measurements are derived from
-  static const double baseSize = 60.0;  // Current height of metric box
+  static const double baseSize = 60.0; // Current height of metric box
 }
 
 /// Padding and spacing constants used throughout the workout UI
 class WorkoutPadding {
   /// Standard edge padding for cards and containers
   static const double standard = 8.0;
-  
+
   /// Small padding for tight spaces
   static const double small = 6.0;
-  
+
   /// Horizontal padding for metric boxes (5% of base size)
   static const double metricHorizontal = WorkoutMetricScale.baseSize * 0.05;
 
@@ -25,13 +25,13 @@ class WorkoutPadding {
 class WorkoutSpacing {
   /// Extra extra small vertical spacing
   static const double xxsmall = 4.0;
-  
+
   /// Extra small vertical spacing
   static const double xsmall = 8.0;
-  
+
   /// Small vertical spacing
   static const double small = 16.0;
-  
+
   /// Medium vertical spacing
   static const double medium = 20.0;
 
@@ -46,10 +46,10 @@ class WorkoutSpacing {
 class WorkoutSizes {
   /// Width of the FTP input field
   static const double ftpFieldWidth = 80.0;
-  
+
   /// Width of the progress indicator line
   static const double progressIndicatorWidth = 3.0;
-  
+
   /// Height of the cadence indicator
   static const double cadenceIndicatorHeight = 20.0;
 
@@ -104,8 +104,8 @@ class WorkoutShadows {
   /// Shadow for metric boxes
   static final BoxShadow metricBox = BoxShadow(
     color: Colors.black.withOpacity(0.1),
-    blurRadius: WorkoutMetricScale.baseSize * 0.05,  // 5% of base size
-    offset: Offset(0, WorkoutMetricScale.baseSize * 0.025),  // 2.5% of base size
+    blurRadius: WorkoutMetricScale.baseSize * 0.05, // 5% of base size
+    offset: Offset(0, WorkoutMetricScale.baseSize * 0.025), // 2.5% of base size
   );
 }
 
@@ -113,16 +113,21 @@ class WorkoutShadows {
 class WorkoutDurations {
   /// Duration for fade animations
   static const Duration fadeAnimation = Duration(milliseconds: 500);
-  
+  /// How long workout text is displayed on screen
+  static const Duration textLinger = Duration(seconds: 5);
   /// Interval for progress updates
   static const Duration progressUpdateInterval = Duration(milliseconds: 100);
+  ///Length of workout prieview
+  static const double previewMinutes = 40;
+  ///Length of workout playing window
+  static const double playingMinutes = 10;
 }
 
 /// Grid constants for the workout graph
 class WorkoutGrid {
   /// Interval for power grid lines (in watts)
   static const double powerLineInterval = 100.0;
-  
+
   /// Interval for time grid lines (in seconds)
   static const double timeLineInterval = 300.0; // 5 minutes
 }
@@ -131,10 +136,10 @@ class WorkoutGrid {
 class WorkoutOpacity {
   /// Opacity for segment colors
   static const double segmentColor = 0.7;
-  
+
   /// Opacity for grid lines
   static const double gridLines = 0.5;
-  
+
   /// Opacity for segment borders
   static const double segmentBorder = 0.1;
 
@@ -146,7 +151,7 @@ class WorkoutOpacity {
 class WorkoutStroke {
   /// Width for standard borders
   static const double border = 1.0;
-  
+
   /// Width for cadence indicator
   static const double cadenceIndicator = 2.0;
 
@@ -158,27 +163,26 @@ class WorkoutStroke {
 class WorkoutZones {
   /// Recovery zone (< 55% FTP)
   static const double recovery = 0.55;
-  
+
   /// Endurance zone (55-75% FTP)
   static const double endurance = 0.75;
-  
+
   /// Tempo zone (76-87% FTP)
   static const double tempo = 0.87;
-  
+
   /// Threshold zone (88-95% FTP)
   static const double threshold = 0.95;
-  
+
   /// VO2Max zone (96-105% FTP)
   static const double vo2max = 1.05;
-  
+
   /// Anaerobic zone (106-120% FTP)
   static const double anaerobic = 1.20;
-  
+
   /// Neuromuscular zone (> 120% FTP)
   static const double neuromuscular = 1.50;
 }
 
-  // Default cooldown values (70% to 50% FTP)
+// Default cooldown values (70% to 50% FTP)
 const double defaultCooldownStart = 0.70;
 const double defaultCooldownEnd = 0.50;
-
