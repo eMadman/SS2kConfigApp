@@ -246,4 +246,23 @@ class FTMSControlPoint {
       rethrow;
     }
   }
+
+  /// Controls the spin down procedure
+  /// [characteristic] - The FTMS Control Point characteristic to write to
+  /// [start] - If true, starts the spin down procedure. If false, ignores it.
+  static Future<void> spinDownControl(
+    BluetoothCharacteristic characteristic,
+    bool start,
+  ) async {
+    try {
+      final ByteData buffer = ByteData(FTMSDataConfig.SPIN_DOWN_CONTROL_LENGTH);
+      buffer.setUint8(0, FTMSOpCodes.SPIN_DOWN_CONTROL);
+      buffer.setUint8(1, start ? FTMSSpinDownParams.START : FTMSSpinDownParams.IGNORE);
+      
+      await characteristic.write(buffer.buffer.asUint8List());
+    } catch (e) {
+      print('Error controlling spin down procedure: $e');
+      rethrow;
+    }
+  }
 }
