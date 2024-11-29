@@ -276,6 +276,22 @@ class WorkoutMetric {
     );
   }
 
+  factory WorkoutMetric.speed({required double mph}) {
+    return WorkoutMetric(
+      label: 'Speed',
+      value: mph.toStringAsFixed(1),
+      unit: 'MPH',
+    );
+  }
+
+  factory WorkoutMetric.distance({required double miles}) {
+    return WorkoutMetric(
+      label: 'Distance',
+      value: miles.toStringAsFixed(2),
+      unit: 'MI',
+    );
+  }
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||

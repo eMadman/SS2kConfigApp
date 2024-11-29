@@ -12,7 +12,6 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:app_links/app_links.dart';
 
 import 'services/strava_service.dart';
-import 'config/env.dart';
 //import 'theme/color_schemes.g.dart';
 import 'screens/bluetooth_off_screen.dart';
 import 'screens/scan_screen.dart';

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../utils/workout/workout_painter.dart';
 import '../utils/workout/workout_metrics.dart';
@@ -215,82 +216,83 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
   }
 
   Future<void> _showCalibrationDialog() async {
-  bool isCalibrating = false;
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (BuildContext context) {
-      return StatefulBuilder(
-        builder: (context, setState) {
-          return AlertDialog(
-            title: const Text('Calibration'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (!isCalibrating)
-                  const Text('Start pedaling until the SmartSpin2k knob starts to turn.\n\nPress Start when ready.'),
-                if (isCalibrating)
-                  const Text('Stop pedaling and wait for the calibration to complete.\n\nThis may take a few moments...'),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-                child: const Text('CANCEL'),
+    bool isCalibrating = false;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Calibration'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (!isCalibrating)
+                    const Text('Start pedaling until the SmartSpin2k knob starts to turn.\n\nPress Start when ready.'),
+                  if (isCalibrating)
+                    const Text(
+                        'Stop pedaling and wait for the calibration to complete.\n\nThis may take a few moments...'),
+                ],
               ),
-              if (!isCalibrating)
+              actions: [
                 TextButton(
-                  onPressed: () async {
-                    setState(() {
-                      isCalibrating = true;
-                    });
-                    
-                    try {
-                      // Get the FTMS Control Point characteristic from bleData
-                      final ftmsControlPointChar = bleData.ftmsControlPointCharacteristic;
-                      if (ftmsControlPointChar != null) {
-                        // Start the spin down procedure
-                        await FTMSControlPoint.spinDownControl(ftmsControlPointChar, true);
-                        
-                        // Wait for a response or timeout after 30 seconds
-                        await Future.delayed(const Duration(seconds: 30));
-                        
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('CANCEL'),
+                ),
+                if (!isCalibrating)
+                  TextButton(
+                    onPressed: () async {
+                      setState(() {
+                        isCalibrating = true;
+                      });
+
+                      try {
+                        // Get the FTMS Control Point characteristic from bleData
+                        final ftmsControlPointChar = bleData.ftmsControlPointCharacteristic;
+                        if (ftmsControlPointChar != null) {
+                          // Start the spin down procedure
+                          await FTMSControlPoint.spinDownControl(ftmsControlPointChar, true);
+
+                          // Wait for a response or timeout after 30 seconds
+                          await Future.delayed(const Duration(seconds: 30));
+
+                          if (mounted) {
+                            Navigator.of(context).pop();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Calibration completed'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          }
+                        } else {
+                          throw Exception('FTMS Control Point characteristic not found');
+                        }
+                      } catch (e) {
                         if (mounted) {
                           Navigator.of(context).pop();
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Calibration completed'),
-                              backgroundColor: Colors.green,
+                            SnackBar(
+                              content: Text('Calibration failed: $e'),
+                              backgroundColor: Colors.red,
                             ),
                           );
                         }
-                      } else {
-                        throw Exception('FTMS Control Point characteristic not found');
                       }
-                    } catch (e) {
-                      if (mounted) {
-                        Navigator.of(context).pop();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Calibration failed: $e'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      }
-                    }
-                  },
-                  child: const Text('START'),
-                ),
-            ],
-          );
-        },
-      );
-    },
-  );
-}
+                    },
+                    child: const Text('START'),
+                  ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
 
   void _updateScrollPosition() {
     if (!mounted || !_scrollController.hasClients) return;
@@ -300,7 +302,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
         final viewportWidth = _scrollController.position.viewportDimension;
         final totalWidth = _scrollController.position.maxScrollExtent + viewportWidth;
         final progressWidth = _workoutController.progressPosition * (totalWidth - (2 * WorkoutPadding.standard));
-
         final targetScroll = progressWidth - (viewportWidth / 2);
 
         if ((targetScroll - _lastScrollPosition).abs() > 1.0) {
@@ -522,6 +523,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
                     elapsedTime: _workoutController.elapsedSeconds,
                     timeToNextSegment: _workoutController.currentSegmentTimeRemaining,
                     totalDuration: _workoutController.totalDuration,
+                    speedMph: _workoutController.speedMph,
+                    totalDistance: _workoutController.totalDistance,
                   ),
                 ],
               ),
@@ -600,12 +603,15 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
             ],
           ),
           Positioned.fill(
-            child: WorkoutTextEventOverlay(
-              currentSegment: _workoutController.currentSegment,
-              secondsIntoSegment: _workoutController.currentSegmentElapsedSeconds,
-              fadeAnimation: _textEventFadeAnimation,
-              ttsSettings: _ttsSettings,
-            ),
+            child: _workoutController.isPlaying
+                ? WorkoutTextEventOverlay(
+                    currentSegment: _workoutController.currentSegment,
+                    secondsIntoSegment: _workoutController.currentSegmentElapsedSeconds,
+                    fadeAnimation: _textEventFadeAnimation,
+                    ttsSettings: _ttsSettings,
+                    workoutController: _workoutController,
+                  )
+                : const SizedBox.shrink(),
           ),
         ],
       ),

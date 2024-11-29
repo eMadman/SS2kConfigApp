@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'workout_parser.dart';
 import 'workout_constants.dart';
-import 'workout_controller.dart';
 
 class WorkoutPainter extends CustomPainter {
   final List<WorkoutSegment> segments;

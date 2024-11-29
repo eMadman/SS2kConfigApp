@@ -32,7 +32,7 @@ class TrackPoint {
 }
 
 class WorkoutController extends ChangeNotifier {
- // Static map to store device-specific controllers
+  // Static map to store device-specific controllers
   static final Map<String, WorkoutController> _instances = {};
   bool _isDisposed = false;
 
@@ -87,6 +87,13 @@ class WorkoutController extends ChangeNotifier {
     final deviceId = device.remoteId.str;
     _instances.remove(deviceId);
     super.dispose();
+  }
+
+  // Getter for speed calculation
+  double get speedMph {
+    if (!isPlaying) return 0.0;
+    final currentPower = bleData.ftmsData.watts.toDouble();
+    return currentPower > 0 ? 2.418 * math.pow(currentPower, 0.394) : 0.0;
   }
 
   Future<void> _initializeController() async {
@@ -166,7 +173,8 @@ class WorkoutController extends ChangeNotifier {
           break; // Break if successful
         } catch (e) {
           print('Error resetting simulation parameters (attempt ${i + 1}): $e');
-          if (i == 2) { // Last attempt failed
+          if (i == 2) {
+            // Last attempt failed
             if (!_isDisposed) {
               notifyListeners(); // Notify to update UI if needed
             }
@@ -245,7 +253,7 @@ class WorkoutController extends ChangeNotifier {
       elapsedTime += segments[i].duration;
     }
   }
-  
+
   void loadWorkout(String xmlContent, {bool isResume = false}) {
     try {
       final workoutData = WorkoutParser.parseZwoFile(xmlContent);
@@ -269,7 +277,7 @@ class WorkoutController extends ChangeNotifier {
       workoutName = workoutData.name;
       maxPower = maxPowerTemp;
       totalDuration = totalDurationTemp;
-      
+
       // Only reset these values if it's not a resume
       if (!isResume) {
         progressPosition = 0;
@@ -280,7 +288,7 @@ class WorkoutController extends ChangeNotifier {
         _totalAscent = 0;
         isPlaying = false; // Ensure workout starts in stopped state for fresh loads
       }
-      
+
       _currentWorkoutContent = xmlContent;
 
       // Reset simulation parameters when loading new workout
@@ -306,7 +314,7 @@ class WorkoutController extends ChangeNotifier {
     }
 
     progressTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
-      if (_isDisposed) {
+      if (_isDisposed || !isPlaying) {
         timer.cancel();
         return;
       }
@@ -319,7 +327,6 @@ class WorkoutController extends ChangeNotifier {
       actualPowerPoints[elapsedSeconds] = currentPower;
 
       // Calculate speed (m/s) from power
-      double speedMph = currentPower > 0 ? 2.418 * math.pow(currentPower, 0.394) : 0;
       double speedMps = speedMph * 0.44704; // Convert mph to m/s
 
       // Update total distance (in meters)
@@ -353,8 +360,10 @@ class WorkoutController extends ChangeNotifier {
         isPlaying = false;
         timer.cancel();
         // Play workout end sound and reset simulation parameters
-        workoutSoundGenerator.workoutEndSound();
-        _resetSimulationParameters();
+        if (!_isDisposed) {
+          workoutSoundGenerator.workoutEndSound();
+          _resetSimulationParameters();
+        }
         _saveWorkoutState();
         if (!_isDisposed) {
           notifyListeners();
@@ -389,14 +398,7 @@ class WorkoutController extends ChangeNotifier {
             bleData.ftmsData.targetERG = (targetPower * ftpValue).round();
             currentSegmentTimeRemaining = ((elapsedTime + segment.duration) - currentTime).round();
 
-            // Play countdown sound when approaching next segment
-            if (currentSegmentTimeRemaining <= 3 && !_isCountingDown) {
-              _isCountingDown = true;
-              workoutSoundGenerator.intervalCountdownSound();
-            } else if (currentSegmentTimeRemaining > 3) {
-              _isCountingDown = false;
-            }
-
+            _handleSegmentCountdown(currentSegmentTimeRemaining);
             break;
           }
           elapsedTime += segment.duration;
@@ -408,6 +410,17 @@ class WorkoutController extends ChangeNotifier {
         notifyListeners();
       }
     });
+  }
+
+  void _handleSegmentCountdown(int timeRemaining) {
+    if (!isPlaying) return; // Don't play sounds if workout isn't active
+    
+    if (timeRemaining <= 3 && timeRemaining > 0 && !_isCountingDown) {
+      _isCountingDown = true;
+      workoutSoundGenerator.intervalCountdownSound();
+    } else if (timeRemaining > 3) {
+      _isCountingDown = false;
+    }
   }
 
   Future<void> _saveWorkoutState() async {

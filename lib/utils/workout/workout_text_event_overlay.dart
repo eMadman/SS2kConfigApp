@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
-import 'workout_constants.dart';
 import 'workout_parser.dart';
 import 'workout_tts_settings.dart';
+import 'workout_controller.dart';
 
 class WorkoutTextEventOverlay extends StatefulWidget {
   final WorkoutSegment? currentSegment;
   final int secondsIntoSegment;
   final Animation<double> fadeAnimation;
   final WorkoutTTSSettings ttsSettings;
+  final WorkoutController workoutController;
 
   const WorkoutTextEventOverlay({
     Key? key,
@@ -15,6 +16,7 @@ class WorkoutTextEventOverlay extends StatefulWidget {
     required this.secondsIntoSegment,
     required this.fadeAnimation,
     required this.ttsSettings,
+    required this.workoutController,
   }) : super(key: key);
 
   @override
