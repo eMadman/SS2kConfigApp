@@ -9,6 +9,8 @@ class WorkoutMetrics extends StatelessWidget {
   final int elapsedTime;
   final int timeToNextSegment;
   final double totalDuration;
+  final double? speedMph;
+  final double? totalDistance;
 
   const WorkoutMetrics({
     Key? key,
@@ -17,6 +19,8 @@ class WorkoutMetrics extends StatelessWidget {
     required this.elapsedTime,
     required this.timeToNextSegment,
     required this.totalDuration,
+    this.speedMph,
+    this.totalDistance,
   }) : super(key: key);
 
   @override
@@ -32,6 +36,8 @@ class WorkoutMetrics extends StatelessWidget {
       WorkoutMetric.cadence(rpm: bleData.ftmsData.cadence),
       if (bleData.ftmsData.heartRate != 0)
         WorkoutMetric.heartRate(bpm: bleData.ftmsData.heartRate),
+      WorkoutMetric.speed(mph: speedMph ?? 0.0),
+      WorkoutMetric.distance(miles: (totalDistance ?? 0.0) / 1609.34),
       WorkoutMetric(
         label: 'Next Block',
         value: _formatDuration(timeToNextSegment),

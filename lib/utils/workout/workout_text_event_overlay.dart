@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'workout_constants.dart';
 import 'workout_parser.dart';
 import 'workout_tts_settings.dart';
 

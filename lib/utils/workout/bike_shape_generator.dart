@@ -52,15 +52,23 @@ class BikeShapeGenerator {
       throw Exception('Bike shape not loaded');
     }
 
+    // Calculate how many complete path traversals have occurred
+    int numReversals = (distance / _totalPathDistance!).floor();
+    // Get the remaining distance after complete traversals
+    double remainingDistance = distance % _totalPathDistance!;
+    
+    // If we've reversed an odd number of times, we're going backwards
+    _isReversed = numReversals % 2 == 1;
+    
     final points = _isReversed ? _bikeShapePoints!.reversed.toList() : _bikeShapePoints!;
     double currentDistance = 0;
     
     for (int i = 0; i < points.length - 1; i++) {
       final segmentDistance = _calculateDistance(points[i], points[i + 1]);
-      if (currentDistance + segmentDistance >= distance) {
+      if (currentDistance + segmentDistance >= remainingDistance) {
         // Interpolate between these points
-        final remainingDistance = distance - currentDistance;
-        final fraction = remainingDistance / segmentDistance;
+        final segmentRemainingDistance = remainingDistance - currentDistance;
+        final fraction = segmentRemainingDistance / segmentDistance;
         
         return (
           lat: points[i].lat + (points[i + 1].lat - points[i].lat) * fraction,
@@ -70,9 +78,8 @@ class BikeShapeGenerator {
       currentDistance += segmentDistance;
     }
 
-    // If we reach the end, reverse direction
-    _isReversed = !_isReversed;
-    return _interpolatePosition(distance % _totalPathDistance!);
+    // If we somehow get here (shouldn't happen due to modulo), return last point
+    return points.last;
   }
 
   // Generate track points based on speed and elapsed time
