@@ -50,7 +50,7 @@ void main() {
     final startTime = DateTime.now();
     
     // Simulate the workout data - one data point per second for 2 hours
-    for (var i = 0; i < 7200; i++) {
+    for (var i = 0; i < 1200; i++) {
       // Update mock BLE data
       bleData.ftmsData.watts = 300;
       bleData.ftmsData.cadence = 90;
