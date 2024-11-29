@@ -314,7 +314,7 @@ class WorkoutController extends ChangeNotifier {
     }
 
     progressTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
-      if (_isDisposed) {
+      if (_isDisposed || !isPlaying) {
         timer.cancel();
         return;
       }
@@ -360,8 +360,10 @@ class WorkoutController extends ChangeNotifier {
         isPlaying = false;
         timer.cancel();
         // Play workout end sound and reset simulation parameters
-        workoutSoundGenerator.workoutEndSound();
-        _resetSimulationParameters();
+        if (!_isDisposed) {
+          workoutSoundGenerator.workoutEndSound();
+          _resetSimulationParameters();
+        }
         _saveWorkoutState();
         if (!_isDisposed) {
           notifyListeners();
@@ -396,14 +398,7 @@ class WorkoutController extends ChangeNotifier {
             bleData.ftmsData.targetERG = (targetPower * ftpValue).round();
             currentSegmentTimeRemaining = ((elapsedTime + segment.duration) - currentTime).round();
 
-            // Play countdown sound when approaching next segment
-            if (currentSegmentTimeRemaining <= 3 && !_isCountingDown) {
-              _isCountingDown = true;
-              workoutSoundGenerator.intervalCountdownSound();
-            } else if (currentSegmentTimeRemaining > 3) {
-              _isCountingDown = false;
-            }
-
+            _handleSegmentCountdown(currentSegmentTimeRemaining);
             break;
           }
           elapsedTime += segment.duration;
@@ -415,6 +410,17 @@ class WorkoutController extends ChangeNotifier {
         notifyListeners();
       }
     });
+  }
+
+  void _handleSegmentCountdown(int timeRemaining) {
+    if (!isPlaying) return; // Don't play sounds if workout isn't active
+    
+    if (timeRemaining <= 3 && timeRemaining > 0 && !_isCountingDown) {
+      _isCountingDown = true;
+      workoutSoundGenerator.intervalCountdownSound();
+    } else if (timeRemaining > 3) {
+      _isCountingDown = false;
+    }
   }
 
   Future<void> _saveWorkoutState() async {
