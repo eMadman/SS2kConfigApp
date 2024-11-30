@@ -444,16 +444,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
             },
             itemBuilder: (context) => [
               const PopupMenuItem(
-                value: 'calibrate',
-                child: Row(
-                  children: [
-                    Icon(Icons.tune),
-                    SizedBox(width: 8),
-                    Text('Calibrate'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
                 value: 'import',
                 child: Row(
                   children: [
@@ -500,6 +490,16 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
                     Icon(Icons.link),
                     SizedBox(width: 8),
                     Text('Connected Accounts'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'calibrate',
+                child: Row(
+                  children: [
+                    Icon(Icons.tune),
+                    SizedBox(width: 8),
+                    Text('Calibrate'),
                   ],
                 ),
               ),
