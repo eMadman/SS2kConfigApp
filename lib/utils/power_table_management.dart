@@ -320,7 +320,7 @@ class PowerTableManager {
             children: [
               ListTile(
                 leading: Icon(Icons.clear),
-                title: Text('Clear Existing'),
+                title: Text('Clear Active PowerTable'),
                 onTap: () {
                   Navigator.of(context).pop('clear');
                 },
@@ -347,13 +347,6 @@ class PowerTableManager {
                 },
               ),
               ListTile(
-                leading: Icon(Icons.science),
-                title: Text('Load Test Data'),
-                onTap: () {
-                  Navigator.of(context).pop('test');
-                },
-              ),
-              ListTile(
                 leading: Icon(Icons.share),
                 title: Text('Export PowerTable'),
                 onTap: () {
@@ -366,7 +359,13 @@ class PowerTableManager {
                 onTap: () {
                   Navigator.of(context).pop('import');
                 },
-                
+              ),
+              ListTile(
+                leading: Icon(Icons.science),
+                title: Text('Load Test Data'),
+                onTap: () {
+                  Navigator.of(context).pop('test');
+                },
               ),
             ],
           ),
@@ -447,7 +446,7 @@ class PowerTableManager {
             );
           },
         );
-         if (fileName != null && fileName.isNotEmpty && context.mounted) {
+        if (fileName != null && fileName.isNotEmpty && context.mounted) {
           await PowerTableSharing.exportPowerTable(context, bleData, fileName);
         }
         break;
