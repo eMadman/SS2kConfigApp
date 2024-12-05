@@ -66,6 +66,7 @@ final String resetPowerTableVname = "BLE_resetPowerTable";
 final String powerTableDataVname = "BLE_powerTableData";
 final String simulatedTargetWattsVname = "BLE_simulatedTargetWatts";
 final String simulateTargetWattsVname = "BLE_simulateTargetWatts";
+final String homingSensitivityVname = "BLE_homingSensitivity";
 
 // Refactored customCharacteristicFramework to directly use Dart map
 final dynamic customCharacteristicFramework = [
@@ -554,5 +555,16 @@ final dynamic customCharacteristicFramework = [
     "max": 1,
     "textDescription": "Enable to generate simulated target watt data.",
     "defaultData": "false"
+  },
+  {
+    "vName": homingSensitivityVname,
+    "reference": "0x2C",
+    "isSetting": true,
+    "type": "int",
+    "humanReadableName": "Homing Sensitivity",
+    "min": 10,
+    "max": 100,
+    "textDescription": "Adjust lower if homing hits the limit too hard/grinds, higher if it stops too soon.",
+    "defaultData": "50"
   }
 ];
