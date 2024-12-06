@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
-import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../utils/workout/workout_painter.dart';
 import '../utils/workout/workout_metrics.dart';
