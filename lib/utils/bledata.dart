@@ -39,7 +39,7 @@ class BLEDataManager {
 class FtmsData {
   late int cadence;
   late int watts;
-  int _targetERG;
+  late int _targetERG;
   late int resistance;
   late int mode;
   late int heartRate;
