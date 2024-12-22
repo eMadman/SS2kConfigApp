@@ -21,6 +21,7 @@ import '../utils/workout/workout_controls.dart';
 import '../utils/workout/workout_summary.dart';
 import '../utils/ftmsControlPoint.dart';
 import '../widgets/completed_activities.dart';
+import '../widgets/ss2k_app_bar.dart';
 
 class WorkoutScreen extends StatefulWidget {
   final BluetoothDevice device;
@@ -409,8 +410,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_workoutName ?? ''),
+      appBar: SS2KAppBar(
+        device: widget.device,
+        title: _workoutName ?? '',
         actions: [
           PopupMenuButton<String>(
             onSelected: (value) {

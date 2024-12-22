@@ -14,6 +14,7 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../utils/bledata.dart';
 import '../widgets/metric_card.dart';
+import '../widgets/ss2k_app_bar.dart';
 
 class PowerTableScreen extends StatefulWidget {
   final BluetoothDevice device;
@@ -312,8 +313,9 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
     maxResistance = calculateMaxResistance();
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Resistance Chart'),
+      appBar: SS2KAppBar(
+        device: widget.device,
+        title: 'Resistance Chart',
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),

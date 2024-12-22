@@ -244,33 +244,88 @@ class _DeviceHeaderState extends State<DeviceHeader> {
   Widget build(BuildContext context) {
     var rssiIcon = _buildSignalStrengthIcon(this.bleData.rssi.value);
 
-    return Column(children: <Widget>[
-      ListTile(
-        leading: rssiIcon,
-        title: Text('Device: ${this.widget.device.platformName} (${this.widget.device.remoteId})'),
-        subtitle: Text('Version: ${_fwVersion}'),
-        trailing: Icon(
-          _isExpanded ? Icons.expand_less : Icons.expand_more,
-          size: 40,
-          color: Theme.of(context).primaryColor,
+    return PopupMenuButton<VoidCallback>(
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.2),
+          ),
+          borderRadius: BorderRadius.circular(8),
         ),
-        onTap: () => setState(() => _isExpanded = !_isExpanded),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            rssiIcon,
+            SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  this.widget.device.platformName,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                Text(
+                  'v${_fwVersion}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+            SizedBox(width: 4),
+            Icon(
+              Icons.arrow_drop_down,
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+            ),
+          ],
+        ),
       ),
-      AnimatedCrossFade(
-        firstChild: Container(height: 0),
-        secondChild: Column(children: <Widget>[
-          _buildActionButton('Connect', FontAwesomeIcons.plug, onConnectPressed),
-          _buildActionButton('Refresh', FontAwesomeIcons.rotate, onDiscoverServicesPressed),
-          _buildActionButton('Reboot SS2k', FontAwesomeIcons.arrowRotateRight, onRebootPressed),
-          _buildActionButton('Set Defaults', FontAwesomeIcons.arrowRotateLeft, onResetPressed),
-          _buildActionButton('Manage PowerTable', FontAwesomeIcons.table, onPowerTablePressed),
-          _buildActionButton('Presets', FontAwesomeIcons.sliders, onPresetsPressed),
-        ]),
-        crossFadeState: _isExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
-        duration: Duration(milliseconds: 500),
-      ),
-      Divider(height: 5),
-    ]);
+      onSelected: (callback) => callback(),
+      itemBuilder: (BuildContext context) => <PopupMenuEntry<VoidCallback>>[
+        PopupMenuItem<VoidCallback>(
+          value: onConnectPressed,
+          child: ListTile(
+            leading: Icon(FontAwesomeIcons.plug),
+            title: Text('Connect'),
+          ),
+        ),
+        PopupMenuItem<VoidCallback>(
+          value: onDiscoverServicesPressed,
+          child: ListTile(
+            leading: Icon(FontAwesomeIcons.rotate),
+            title: Text('Refresh'),
+          ),
+        ),
+        PopupMenuItem<VoidCallback>(
+          value: onRebootPressed,
+          child: ListTile(
+            leading: Icon(FontAwesomeIcons.arrowRotateRight),
+            title: Text('Reboot SS2k'),
+          ),
+        ),
+        PopupMenuItem<VoidCallback>(
+          value: onResetPressed,
+          child: ListTile(
+            leading: Icon(FontAwesomeIcons.arrowRotateLeft),
+            title: Text('Set Defaults'),
+          ),
+        ),
+        PopupMenuItem<VoidCallback>(
+          value: onPowerTablePressed,
+          child: ListTile(
+            leading: Icon(FontAwesomeIcons.table),
+            title: Text('Manage PowerTable'),
+          ),
+        ),
+        PopupMenuItem<VoidCallback>(
+          value: onPresetsPressed,
+          child: ListTile(
+            leading: Icon(FontAwesomeIcons.sliders),
+            title: Text('Presets'),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildActionButton(String text, IconData icon, VoidCallback onPressed) {

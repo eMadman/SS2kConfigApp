@@ -10,10 +10,9 @@ import 'package:SS2kConfigApp/utils/extra.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
-
-import '../widgets/device_header.dart';
 import '../utils/bledata.dart';
 import '../widgets/metric_card.dart';
+import '../widgets/ss2k_app_bar.dart';
 
 class ShifterScreen extends StatefulWidget {
   final BluetoothDevice device;
@@ -30,6 +29,7 @@ class _ShifterScreenState extends State<ShifterScreen> {
   String statusString = '';
   StreamSubscription<BluetoothConnectionState>? _connectionStateSubscription;
   bool _refreshBlocker = false;
+  final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
   @override
   void initState() {
@@ -157,26 +157,19 @@ class _ShifterScreenState extends State<ShifterScreen> {
   @override
   Widget build(BuildContext context) {
     return ScaffoldMessenger(
-        child: Scaffold(
-      appBar: AppBar(
-        centerTitle: true,
-        title: Text(
-          "Virtual Shifter",
-          style: TextStyle(
-            fontWeight: FontWeight.w400,
-            fontStyle: FontStyle.normal,
-            fontSize: 20,
-          ),
+      key: _scaffoldMessengerKey,
+      child: Scaffold(
+        appBar: SS2KAppBar(
+          device: widget.device,
+          title: "Virtual Shifter",
         ),
-      ),
-      body: Align(
-        alignment: Alignment.center,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          mainAxisSize: MainAxisSize.max,
-          children: [
-            DeviceHeader(device: this.widget.device, connectOnly: true),
+        body: Align(
+          alignment: Alignment.center,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisSize: MainAxisSize.max,
+            children: [
             SizedBox(height: 8),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,

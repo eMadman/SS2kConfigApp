@@ -10,7 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 import '../widgets/setting_tile.dart';
-import '../widgets/device_header.dart';
+import '../widgets/ss2k_app_bar.dart';
 import '../utils/snackbar.dart';
 
 import '../utils/bledata.dart';
@@ -109,27 +109,19 @@ class _SettingsScreenState extends State<SettingsScreen>{
     return ScaffoldMessenger(
       key: Snackbar.snackBarKeyC,
       child: Scaffold(
-        appBar: AppBar(
-          title: Text(
-            "Settings",
-            style: TextStyle(
-              fontWeight: FontWeight.w400,
-              fontStyle: FontStyle.normal,
-              fontSize: 20,
-            ),
-          ),
+        appBar: SS2KAppBar(
+          device: widget.device,
+          title: "Settings",
         ),
-        body: Column(
-          mainAxisSize: MainAxisSize.max,
+        body: Stack(
           children: <Widget>[
-            DeviceHeader(device: this.widget.device),
-            SizedBox(
-              height: _size.height * .80,
-              width: _size.width * .90,
+            Align(alignment:Alignment.topCenter ,child:SizedBox(
+              height: _size.height * .90,
+              width: _size.width * .80,
               child: ListView(clipBehavior: Clip.antiAlias, itemExtent: 100, children: <Widget>[
                 ...buildSettings(context),
               ]),
-            ),
+            ),),
           ],
         ),
       ),
