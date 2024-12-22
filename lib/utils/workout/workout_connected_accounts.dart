@@ -12,7 +12,7 @@ class WorkoutConnectedAccounts {
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
-                'Connected Accounts',
+                'Connect Accounts',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -26,9 +26,12 @@ class WorkoutConnectedAccounts {
                   final isConnected = snapshot.data ?? false;
                   
                   return ListTile(
-                    leading: const Icon(Icons.directions_bike),
-                    title: const Text('Strava'),
-                    subtitle: Text(isConnected ? 'Connected' : 'Not connected'),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 28.0),
+                    title: Image.asset(
+                      'assets/btn_strava_connectwith_orange.png',
+                      height: 45,
+                      fit: BoxFit.contain,
+                    ),
                     trailing: isConnected
                       ? TextButton.icon(
                           icon: const Icon(Icons.link_off),
