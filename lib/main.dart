@@ -10,26 +10,23 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:app_links/app_links.dart';
+import 'package:provider/provider.dart';
 
 import 'services/strava_service.dart';
-//import 'theme/color_schemes.g.dart';
 import 'screens/bluetooth_off_screen.dart';
 import 'screens/scan_screen.dart';
-//import 'theme/theme.dart';
-import 'package:json_theme/json_theme.dart';
-import 'package:flutter/services.dart';
-import 'dart:convert';
+import 'utils/theme_provider.dart';
 
 void main() async {
   FlutterBluePlus.setLogLevel(LogLevel.verbose, color: true);
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Load theme
-  final themeStr = await rootBundle.loadString('assets/appainter_theme.json');
-  final themeJson = jsonDecode(themeStr);
-  final theme = ThemeDecoder.decodeThemeData(themeJson)!;
 
-  runApp(SmartSpin2kApp(theme: theme));
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => ThemeProvider(),
+      child: const SmartSpin2kApp(),
+    ),
+  );
 }
 
 //
@@ -37,8 +34,7 @@ void main() async {
 // ScanScreen depending on the adapter state
 //
 class SmartSpin2kApp extends StatefulWidget {
-  final ThemeData theme;
-  const SmartSpin2kApp({Key? key, required this.theme}) : super(key: key);
+  const SmartSpin2kApp({Key? key}) : super(key: key);
 
   @override
   State<SmartSpin2kApp> createState() => _SmartSpin2kAppState();
@@ -166,12 +162,14 @@ class _SmartSpin2kAppState extends State<SmartSpin2kApp> {
         ? const ScanScreen()
         : BluetoothOffScreen(adapterState: _adapterState);
 
+    final themeProvider = Provider.of<ThemeProvider>(context);
     return ScaffoldMessenger(
       key: _scaffoldKey,
       child: MaterialApp(
         navigatorKey: _navigatorKey,
-        themeMode: ThemeMode.system,
-        theme: widget.theme,
+        themeMode: themeProvider.themeMode,
+        theme: themeProvider.lightTheme,
+        darkTheme: themeProvider.darkTheme,
         home: screen,
         navigatorObservers: [BluetoothAdapterStateObserver()],
       ),

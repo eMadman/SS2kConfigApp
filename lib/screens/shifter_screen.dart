@@ -134,21 +134,15 @@ class _ShifterScreenState extends State<ShifterScreen> {
     return Container(
       padding: EdgeInsets.symmetric(vertical: 16, horizontal: 32),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: [
-          BoxShadow(
-            color: ThemeData().colorScheme.surface.withOpacity(0.5),
-            spreadRadius: 5,
-            blurRadius: 7,
-            offset: Offset(0, 3),
-          ),
-        ],
+        color: Theme.of(context).colorScheme.surfaceVariant,
+        borderRadius: BorderRadius.circular(14.0),
       ),
       child: Text(
         gearNumber,
         style: TextStyle(
           fontSize: 48,
           fontWeight: FontWeight.bold,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
       ),
     );
