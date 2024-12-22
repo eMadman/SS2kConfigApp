@@ -20,6 +20,8 @@ import '../utils/workout/workout_text_event_overlay.dart';
 import '../utils/workout/workout_controls.dart';
 import '../utils/workout/workout_summary.dart';
 import '../utils/ftmsControlPoint.dart';
+import '../widgets/completed_activities.dart';
+import '../widgets/ss2k_app_bar.dart';
 
 class WorkoutScreen extends StatefulWidget {
   final BluetoothDevice device;
@@ -408,8 +410,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_workoutName ?? ''),
+      appBar: SS2KAppBar(
+        device: widget.device,
+        title: _workoutName ?? '',
         actions: [
           PopupMenuButton<String>(
             onSelected: (value) {
@@ -438,6 +441,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
                   break;
                 case 'calibrate':
                   _showCalibrationDialog();
+                  break;
+                case 'completed_activities':
+                  CompletedActivities.showCompletedActivitiesDialog(context);
                   break;
               }
             },
@@ -499,6 +505,16 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
                     Icon(Icons.tune),
                     SizedBox(width: 8),
                     Text('Calibrate'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'completed_activities',
+                child: Row(
+                  children: [
+                    Icon(Icons.history),
+                    SizedBox(width: 8),
+                    Text('Completed Activities'),
                   ],
                 ),
               ),

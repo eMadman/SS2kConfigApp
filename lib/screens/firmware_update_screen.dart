@@ -20,7 +20,7 @@ import 'package:file_picker/file_picker.dart';
 import '../utils/bleOTA.dart';
 import '../utils/wifi_ota.dart';
 import '../utils/bledata.dart';
-import '../widgets/device_header.dart';
+import '../widgets/ss2k_app_bar.dart';
 
 class FirmwareUpdateScreen extends StatefulWidget {
   final BluetoothDevice device;
@@ -575,18 +575,15 @@ class _FirmwareUpdateState extends State<FirmwareUpdateScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Firmware Update'),
+      appBar: SS2KAppBar(
+        device: widget.device,
+        title: 'Firmware Update',
       ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.start,
           children: <Widget>[
-            DeviceHeader(
-              device: this.widget.device,
-              connectOnly: true,
-            ),
-            SizedBox(height: 50),
+            SizedBox(height: 20),
             Column(
               children: this.bleData.configAppCompatibleFirmware ? _buildUpdateButtons() : _notBLECompatible(),
             ),

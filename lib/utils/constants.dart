@@ -561,7 +561,7 @@ final dynamic customCharacteristicFramework = [
     "reference": "0x2C",
     "isSetting": true,
     "type": "int",
-    "humanReadableName": "Homing Sensitivity",
+    "humanReadableName": "Homing Force",
     "min": 10,
     "max": 100,
     "textDescription": "Adjust lower if homing hits the limit too hard/grinds, higher if it stops too soon.",

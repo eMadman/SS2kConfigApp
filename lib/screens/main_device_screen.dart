@@ -7,6 +7,7 @@
 
 import 'package:SS2kConfigApp/screens/power_table_screen.dart';
 import 'package:SS2kConfigApp/widgets/device_header.dart';
+import 'package:SS2kConfigApp/widgets/ss2k_app_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
@@ -129,13 +130,13 @@ class _MainDeviceScreenState extends State<MainDeviceScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text("Main Device Screen"),
+      appBar: SS2KAppBar(
+        device: widget.device,
+        title: "Main Device Screen",
       ),
       body: ListView(
         padding: EdgeInsets.all(8),
         children: <Widget>[
-          DeviceHeader(device: this.widget.device, connectOnly: true),
           SizedBox(height: 20),
           _buildCard('assets/shiftscreen.png', "Virtual Shifter", () {
             Navigator.of(context)

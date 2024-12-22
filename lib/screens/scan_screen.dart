@@ -16,6 +16,7 @@ import '../utils/snackbar.dart';
 import '../utils/extra.dart';
 import '../widgets/scan_result_tile.dart';
 import '../utils/demo.dart';
+import 'app_settings_screen.dart';
 
 class ScanScreen extends StatefulWidget {
   const ScanScreen({Key? key}) : super(key: key);
@@ -175,6 +176,19 @@ class _ScanScreenState extends State<ScanScreen> {
           titleTextStyle: TextStyle(
             fontSize: 30,
           ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.settings),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AppSettingsScreen(),
+                  ),
+                );
+              },
+            ),
+          ],
         ),
         body: Stack(
           children: [

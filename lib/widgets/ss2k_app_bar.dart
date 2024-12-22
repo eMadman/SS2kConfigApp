@@ -1,0 +1,44 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'device_header.dart';
+
+class SS2KAppBar extends StatelessWidget implements PreferredSizeWidget {
+  final BluetoothDevice device;
+  final String title;
+  final List<Widget>? actions;
+  final bool showDeviceHeader;
+
+  const SS2KAppBar({
+    Key? key,
+    required this.device,
+    required this.title,
+    this.actions,
+    this.showDeviceHeader = true,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return AppBar(
+      titleSpacing: 0,
+      leadingWidth: 40.0,
+      automaticallyImplyLeading: true,
+      title: Stack(
+        children: <Widget>[
+          Align(
+            alignment: Alignment.centerLeft,
+            child: showDeviceHeader ? DeviceHeader(device: device, connectOnly: true) : null,
+          ),
+          Align(
+            alignment: Alignment.center,
+            child: Text(title),
+          ),
+        ],
+      ),
+      centerTitle: true,
+      actions: actions,
+    );
+  }
+
+  @override
+  Size get preferredSize => Size.fromHeight(kToolbarHeight);
+}
