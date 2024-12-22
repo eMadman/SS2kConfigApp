@@ -164,7 +164,7 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
     _refreshBlocker = true;
     await Future.delayed(Duration(microseconds: 500));
 
-    if (bleData.FTMSmode == 0 || bleData.simulateTargetWatts == false) {
+    if (bleData.FTMSmode == 0 || bleData.FTMSmode == 17) {
       bleData.simulatedTargetWatts = "";
     }
     if (mounted) {
