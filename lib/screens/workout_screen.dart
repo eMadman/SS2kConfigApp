@@ -20,6 +20,7 @@ import '../utils/workout/workout_text_event_overlay.dart';
 import '../utils/workout/workout_controls.dart';
 import '../utils/workout/workout_summary.dart';
 import '../utils/ftmsControlPoint.dart';
+import '../widgets/completed_activities.dart';
 
 class WorkoutScreen extends StatefulWidget {
   final BluetoothDevice device;
@@ -439,6 +440,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
                 case 'calibrate':
                   _showCalibrationDialog();
                   break;
+                case 'completed_activities':
+                  CompletedActivities.showCompletedActivitiesDialog(context);
+                  break;
               }
             },
             itemBuilder: (context) => [
@@ -499,6 +503,16 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
                     Icon(Icons.tune),
                     SizedBox(width: 8),
                     Text('Calibrate'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'completed_activities',
+                child: Row(
+                  children: [
+                    Icon(Icons.history),
+                    SizedBox(width: 8),
+                    Text('Completed Activities'),
                   ],
                 ),
               ),
