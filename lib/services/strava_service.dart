@@ -68,8 +68,8 @@ class StravaService {
       final response = await http.post(
         Uri.parse(_tokenUrl),
         body: {
-          'client_id': Environment.effectiveStravaClientId,
-          'client_secret': Environment.effectiveStravaClientSecret,
+          'client_id': Environment.stravaClientId,
+          'client_secret': Environment.stravaClientSecret,
           'refresh_token': refreshToken,
           'grant_type': 'refresh_token',
         },
@@ -115,7 +115,7 @@ class StravaService {
       // Try Strava app URL scheme first
       final stravaAppUrl = Uri.parse('strava://oauth/mobile/authorize')
           .replace(queryParameters: {
-        'client_id': Environment.effectiveStravaClientId,
+        'client_id': Environment.stravaClientId,
         'redirect_uri': _redirectUri,
         'response_type': 'code',
         'approval_prompt': 'auto',
@@ -129,7 +129,7 @@ class StravaService {
       } else {
         // Fall back to web OAuth
         final webUrl = Uri.parse(_mobileAuthUrl).replace(queryParameters: {
-          'client_id': Environment.effectiveStravaClientId,
+          'client_id': Environment.stravaClientId,
           'redirect_uri': _redirectUri,
           'response_type': 'code',
           'approval_prompt': 'auto',
@@ -174,8 +174,8 @@ class StravaService {
       final response = await http.post(
         Uri.parse(_tokenUrl),
         body: {
-          'client_id': Environment.effectiveStravaClientId,
-          'client_secret': Environment.effectiveStravaClientSecret,
+          'client_id': Environment.stravaClientId,
+          'client_secret': Environment.stravaClientSecret,
           'code': code,
           'grant_type': 'authorization_code',
         },
