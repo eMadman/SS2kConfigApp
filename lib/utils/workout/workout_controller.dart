@@ -197,6 +197,8 @@ class WorkoutController extends ChangeNotifier {
         trackPoints.clear();
         _workoutStartTime = DateTime.now();
       }
+      // Update target power immediately when resuming
+      _updateTargetPower();
       startProgress();
     } else {
       progressTimer?.cancel();
@@ -303,6 +305,41 @@ class WorkoutController extends ChangeNotifier {
     }
   }
 
+  void _updateTargetPower() {
+    if (segments.isEmpty) return;
+    
+    double currentTime = progressPosition * totalDuration;
+    double elapsedTime = 0;
+
+    for (var segment in segments) {
+      if (currentTime >= elapsedTime && currentTime < elapsedTime + segment.duration) {
+        double segmentProgress = (currentTime - elapsedTime) / segment.duration;
+        double targetPower;
+
+        if (segment.isRamp) {
+          if (segment.type == SegmentType.cooldown) {
+            // For cooldowns, start at powerHigh and decrease to powerLow
+            targetPower = segment.powerHigh - (segment.powerHigh - segment.powerLow) * segmentProgress;
+          } else {
+            // For all other ramps, start at powerLow and increase to powerHigh
+            targetPower = segment.powerLow + (segment.powerHigh - segment.powerLow) * segmentProgress;
+          }
+        } else {
+          targetPower = segment.powerLow;
+        }
+
+        // Calculate target power in watts and update ftmsData
+        // When target power is 0, the BLEData class will handle switching to simulation mode
+        bleData.ftmsData.targetERG = (targetPower * ftpValue).round();
+        currentSegmentTimeRemaining = ((elapsedTime + segment.duration) - currentTime).round();
+
+        _handleSegmentCountdown(currentSegmentTimeRemaining);
+        break;
+      }
+      elapsedTime += segment.duration;
+    }
+  }
+
   void startProgress() {
     progressTimer?.cancel();
 
@@ -372,38 +409,7 @@ class WorkoutController extends ChangeNotifier {
       }
 
       // Update target watts and remaining time based on current position
-      if (segments.isNotEmpty) {
-        double currentTime = progressPosition * totalDuration;
-        double elapsedTime = 0;
-
-        for (var segment in segments) {
-          if (currentTime >= elapsedTime && currentTime < elapsedTime + segment.duration) {
-            double segmentProgress = (currentTime - elapsedTime) / segment.duration;
-            double targetPower;
-
-            if (segment.isRamp) {
-              if (segment.type == SegmentType.cooldown) {
-                // For cooldowns, start at powerHigh and decrease to powerLow
-                targetPower = segment.powerHigh - (segment.powerHigh - segment.powerLow) * segmentProgress;
-              } else {
-                // For all other ramps, start at powerLow and increase to powerHigh
-                targetPower = segment.powerLow + (segment.powerHigh - segment.powerLow) * segmentProgress;
-              }
-            } else {
-              targetPower = segment.powerLow;
-            }
-
-            // Calculate target power in watts and update ftmsData
-            // When target power is 0, the BLEData class will handle switching to simulation mode
-            bleData.ftmsData.targetERG = (targetPower * ftpValue).round();
-            currentSegmentTimeRemaining = ((elapsedTime + segment.duration) - currentTime).round();
-
-            _handleSegmentCountdown(currentSegmentTimeRemaining);
-            break;
-          }
-          elapsedTime += segment.duration;
-        }
-      }
+      _updateTargetPower();
 
       _saveWorkoutState();
       if (!_isDisposed) {
