@@ -18,24 +18,41 @@ class SS2KAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppBar(
-      titleSpacing: 0,
-      leadingWidth: 40.0,
-      automaticallyImplyLeading: true,
-      title: Stack(
-        children: <Widget>[
-          Align(
-            alignment: Alignment.centerLeft,
-            child: showDeviceHeader ? DeviceHeader(device: device, connectOnly: true) : null,
-          ),
-          Align(
-            alignment: Alignment.center,
-            child: Text(title),
-          ),
-        ],
-      ),
-      centerTitle: true,
-      actions: actions,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 600; // Threshold for narrow screens
+
+        return AppBar(
+          titleSpacing: 0,
+          leadingWidth: 40.0,
+          automaticallyImplyLeading: true,
+          title: isNarrow
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(title),
+                    if (showDeviceHeader)
+                      DeviceHeader(device: device, connectOnly: true),
+                  ],
+                )
+              : Stack(
+                  children: <Widget>[
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: showDeviceHeader
+                          ? DeviceHeader(device: device, connectOnly: true)
+                          : null,
+                    ),
+                    Align(
+                      alignment: Alignment.center,
+                      child: Text(title),
+                    ),
+                  ],
+                ),
+          centerTitle: true,
+          actions: actions,
+        );
+      },
     );
   }
 
