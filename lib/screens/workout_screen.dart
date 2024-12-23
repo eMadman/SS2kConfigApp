@@ -35,9 +35,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
   String? _workoutName;
   String? _currentWorkoutContent;
   late AnimationController _metricsAndSummaryFadeController;
-  late AnimationController _textEventFadeController;
   late Animation<double> _metricsAndSummaryFadeAnimation;
-  late Animation<double> _textEventFadeAnimation;
   late BLEData bleData;
   late WorkoutController _workoutController;
   late WorkoutTTSSettings _ttsSettings;
@@ -53,16 +51,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
 
   void _initializeAnimationControllers() {
     _metricsAndSummaryFadeController = AnimationController(
-      duration: WorkoutDurations.fadeAnimation,
-      vsync: this,
-    );
-    _textEventFadeController = AnimationController(
-      duration: WorkoutDurations.textLinger, // Total duration including delay and fade
+      duration: const Duration(milliseconds: 500),
       vsync: this,
     );
 
     _metricsAndSummaryFadeAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(_metricsAndSummaryFadeController);
-    _textEventFadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(_textEventFadeController);
 
     _zoomController = AnimationController(
       duration: const Duration(milliseconds: 500),
@@ -93,11 +86,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
       } else if (_workoutController.isPlaying && mounted) {
         // If workout is already playing, forward the animations
         _metricsAndSummaryFadeController.forward();
-        _textEventFadeController.forward();
         _zoomController.forward();
       } else {
         _metricsAndSummaryFadeController.animateBack(0);
-        _textEventFadeController.animateBack(0);
         _zoomController.animateBack(0);
       }
     });
@@ -107,12 +98,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
 
       if (_workoutController.isPlaying) {
         _metricsAndSummaryFadeController.forward();
-        _textEventFadeController.forward();
         _zoomController.forward();
         _updateScrollPosition();
       } else {
         _metricsAndSummaryFadeController.reverse();
-        _textEventFadeController.reverse();
         _zoomController.reverse();
         // Check if workout completed naturally (reached the end)
         if (_workoutController.progressPosition >= 1.0) {
@@ -344,7 +333,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
   void dispose() {
     WakelockPlus.disable();
     _metricsAndSummaryFadeController.dispose();
-    _textEventFadeController.dispose();
     _zoomController.dispose();
     _connectionStateSubscription?.cancel();
     bleData.isReadingOrWriting.removeListener(_rwListener);
@@ -622,7 +610,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
                 ? WorkoutTextEventOverlay(
                     currentSegment: _workoutController.currentSegment,
                     secondsIntoSegment: _workoutController.currentSegmentElapsedSeconds,
-                    fadeAnimation: _textEventFadeAnimation,
                     ttsSettings: _ttsSettings,
                     workoutController: _workoutController,
                   )

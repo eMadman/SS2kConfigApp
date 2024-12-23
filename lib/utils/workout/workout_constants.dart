@@ -111,16 +111,20 @@ class WorkoutShadows {
 
 /// Duration constants for animations and intervals
 class WorkoutDurations {
-  /// Duration for fade animations
-  static const Duration fadeAnimation = Duration(milliseconds: 500);
-  /// How long workout text is displayed on screen
-  static const Duration textLinger = Duration(seconds: 5);
   /// Interval for progress updates
   static const Duration progressUpdateInterval = Duration(milliseconds: 100);
   ///Length of workout prieview
   static const double previewMinutes = 40;
   ///Length of workout playing window
   static const double playingMinutes = 10;
+}
+
+/// Text style constants for workout text overlay
+class WorkoutTextStyle {
+  /// Font size for scrolling workout text
+  static const double scrollingText = 48.0;
+  /// Speed of text scrolling in pixels per second
+  static const double scrollSpeed = 100.0;
 }
 
 /// Grid constants for the workout graph
