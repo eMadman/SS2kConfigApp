@@ -6,12 +6,16 @@
  */
 
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 import '../utils/snackbar.dart';
+
+bool get isAndroid {
+  if (kIsWeb) return false;
+  return defaultTargetPlatform == TargetPlatform.android;
+}
 
 class BluetoothOffScreen extends StatelessWidget {
   const BluetoothOffScreen({Key? key, this.adapterState}) : super(key: key);
@@ -27,9 +31,15 @@ class BluetoothOffScreen extends StatelessWidget {
   }
 
   Widget buildTitle(BuildContext context) {
-    String? state = adapterState?.toString().split(".").last;
+    if (!kIsWeb) {
+      String? state = adapterState?.toString().split(".").last;
+      return Text(
+        'Bluetooth Adapter is ${state != null ? state : 'not available'}',
+        style: Theme.of(context).primaryTextTheme.titleSmall?.copyWith(color: Colors.white),
+      );
+    }
     return Text(
-      'Bluetooth Adapter is ${state != null ? state : 'not available'}',
+      'Bluetooth',
       style: Theme.of(context).primaryTextTheme.titleSmall?.copyWith(color: Colors.white),
     );
   }
@@ -41,7 +51,7 @@ class BluetoothOffScreen extends StatelessWidget {
         child: const Text('TURN ON'),
         onPressed: () async {
           try {
-            if (Platform.isAndroid) {
+            if (isAndroid) {
               await FlutterBluePlus.turnOn();
             }
           } catch (e) {
@@ -64,7 +74,7 @@ class BluetoothOffScreen extends StatelessWidget {
             children: <Widget>[
               buildBluetoothOffIcon(context),
               buildTitle(context),
-              if (Platform.isAndroid) buildTurnOnButton(context),
+              if (isAndroid) buildTurnOnButton(context),
             ],
           ),
         ),

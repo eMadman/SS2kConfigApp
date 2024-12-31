@@ -5,7 +5,9 @@
  * SPDX-License-Identifier: GPL-2.0-only
  */
 import 'dart:async';
-import 'dart:io';
+import 'dart:io' if (dart.library.html) 'dart:html' as platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:io' as io show Platform;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
@@ -65,16 +67,27 @@ class _ScanScreenState extends State<ScanScreen> {
     //don't allow scan in demo mode - it ruins the setup
     if (_showDemoButton) return;
     try {
-      // android is slow when asking for all advertisements,
-      // so instead we only ask for 1/8 of them
-      int divisor = Platform.isAndroid ? 8 : 1;
-      await FlutterBluePlus.startScan(
+      if (kIsWeb) {
+        // Web platform uses different scanning approach
+        await FlutterBluePlus.startScan(
+          withServices: [Guid(csUUID)],
+          timeout: const Duration(seconds: 15),
+        );
+      } else {
+        // Native platforms (Android/iOS)
+        int divisor = !kIsWeb && io.Platform.isAndroid ? 8 : 1;
+        await FlutterBluePlus.startScan(
           withServices: [Guid(csUUID)],
           timeout: const Duration(seconds: 15),
           continuousUpdates: true,
-          continuousDivisor: divisor);
+          continuousDivisor: divisor,
+        );
+      }
     } catch (e) {
-      Snackbar.show(ABC.b, prettyException("Start Scan Error:", e), success: false);
+      String errorMessage = kIsWeb
+          ? "Web Bluetooth Error: Make sure your browser supports Web Bluetooth and you're using HTTPS"
+          : prettyException("Start Scan Error:", e);
+      Snackbar.show(ABC.b, errorMessage, success: false);
     }
     if (mounted) {
       setState(() {});
