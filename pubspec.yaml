@@ -19,7 +19,7 @@ dependencies:
     git:
       url: https://github.com/tnc1997/flutter-blue-plus.git
       path: packages/flutter_blue_plus
-      ref: flutter_blue_plus-v1.0.0
+      ref: flutter_blue_plus-v2.0.6
   #dynamic_color: ^1.6.9
   flutter_launcher_icons: ^0.14.2
   flutter_native_splash: ^2.3.9

@@ -44,9 +44,9 @@ jobs:
         id: set_version
         run: echo "::set-output name=version::$NEW_TAG"
 
-  build-macos:
+  build-android:
     needs: prepare
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       
@@ -56,6 +56,45 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v1
+        with:
+          flutter-version: '3.22.3'
+
+      - name: Create env.local.dart
+        run: |
+          mkdir -p lib/config
+          umask 077
+          cat > lib/config/env.local.dart << EOL
+          class Environment {
+            static const String stravaClientId = '${{ secrets.STRAVA_CLIENT_ID }}';
+            static const String stravaClientSecret = '${{ secrets.STRAVA_CLIENT_SECRET }}';
+            
+            static bool get hasStravaConfig =>
+              stravaClientId.isNotEmpty && stravaClientSecret.isNotEmpty;
+          }
+          EOL
+
+      - name: Build Android APK
+        run: flutter build apk --no-tree-shake-icons
+
+      - name: Create artifacts
+        run: |
+          mkdir -p artifacts
+          mv build/app/outputs/flutter-apk/app-release.apk artifacts/ss2kconfigapp.apk
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-artifacts
+          path: artifacts/
+
+  build-macos:
+    needs: prepare
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v2
+      
       - name: Setup Flutter
         uses: subosito/flutter-action@v1
         with:
@@ -84,12 +123,6 @@ jobs:
           # Verify file exists but don't show contents
           ls -l lib/config/env.local.dart
 
-      - name: Build Android APK
-        run: flutter build apk --no-tree-shake-icons
-
-      - name: Rename APK to ss2kconfigapp.apk
-        run: mv build/app/outputs/flutter-apk/app-release.apk build/ss2kconfigapp.apk
-
       - name: Build iOS App
         run: flutter build ios --release --no-codesign --no-tree-shake-icons
 
@@ -99,7 +132,7 @@ jobs:
       - name: Create artifacts
         run: |
           mkdir -p artifacts
-          zip -r artifacts/ss2kconfigapp${{ needs.prepare.outputs.version }}.zip build/ss2kconfigapp.apk build/ios/iphoneos build/macos/Build/Products/Release
+          zip -r artifacts/ss2kconfigapp${{ needs.prepare.outputs.version }}.zip build/ios/iphoneos build/macos/Build/Products/Release
 
       # Clean up sensitive files
       - name: Clean up env.local.dart
@@ -119,6 +152,9 @@ jobs:
   build-linux:
     needs: prepare
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
     steps:
       - uses: actions/checkout@v2
 
@@ -141,56 +177,82 @@ jobs:
           }
           EOL
 
+      - name: Set up QEMU
+        if: matrix.arch == 'arm64'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
       - name: Install Linux dependencies
         run: |
+          sudo dpkg --add-architecture ${{ matrix.arch }}
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libx11-dev pkg-config cmake ninja-build libblkid-dev liblzma-dev libsecret-1-dev libjsoncpp-dev libunwind-dev
-          sudo apt-get install -y libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
-          sudo apt-get install -y fuse libfuse2 appstream
+          sudo apt-get install -y libgtk-3-dev:${{ matrix.arch }} libx11-dev:${{ matrix.arch }} pkg-config cmake ninja-build libblkid-dev:${{ matrix.arch }} liblzma-dev:${{ matrix.arch }} libsecret-1-dev:${{ matrix.arch }} libjsoncpp-dev:${{ matrix.arch }}
+          sudo apt-get install -y libgstreamer1.0-dev:${{ matrix.arch }} libgstreamer-plugins-base1.0-dev:${{ matrix.arch }}
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
 
       - name: Build Linux App
         run: |
           flutter config --enable-linux-desktop
-          flutter build linux --release --no-tree-shake-icons
+          if [ "${{ matrix.arch }}" = "arm64" ]; then
+            export CC=aarch64-linux-gnu-gcc
+            export CXX=aarch64-linux-gnu-g++
+            flutter build linux --release --no-tree-shake-icons --target-platform=linux-arm64
+          else
+            flutter build linux --release --no-tree-shake-icons
+          fi
           
-      - name: Create AppImage
+      - name: Create Debian Package
         run: |
-          # Install appimagetool
-          wget -O appimagetool "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
-          chmod +x appimagetool
+          # Create package directory structure
+          mkdir -p debian/DEBIAN
+          mkdir -p debian/usr/bin
+          mkdir -p debian/usr/share/applications
+          mkdir -p debian/usr/share/icons/hicolor/256x256/apps
           
-          # Create AppDir structure
-          mkdir -p AppDir/usr/bin
-          mkdir -p AppDir/usr/share/applications
-          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+          # Create control file
+          cat > debian/DEBIAN/control << EOL
+          Package: ss2kconfigapp
+          Version: ${{ needs.prepare.outputs.version }}
+          Section: utils
+          Priority: optional
+          Architecture: ${{ matrix.arch }}
+          Maintainer: SmartSpin2k Team
+          Description: SmartSpin2k Configuration Application
+           A Flutter application for configuring and controlling SmartSpin2k devices.
+          EOL
           
-          # Copy application files
-          cp -r build/linux/x64/release/bundle/* AppDir/usr/bin/
-          # Copy icon to both hicolor directory and AppDir root
-          cp assets/icons/ss2kv3.png AppDir/usr/share/icons/hicolor/256x256/apps/ss2kconfigapp.png
-          cp assets/icons/ss2kv3.png AppDir/ss2kconfigapp.png
+          # Copy application files based on architecture
+          if [ "${{ matrix.arch }}" = "arm64" ]; then
+            cp -r build/linux/arm64/release/bundle/* debian/usr/bin/
+          else
+            cp -r build/linux/x64/release/bundle/* debian/usr/bin/
+          fi
           
-          # Create desktop file in AppDir root
-          cat > AppDir/ss2kconfigapp.desktop << EOL
+          # Copy icon
+          cp assets/icons/ss2kv3.png debian/usr/share/icons/hicolor/256x256/apps/ss2kconfigapp.png
+          
+          # Create desktop file
+          cat > debian/usr/share/applications/ss2kconfigapp.desktop << EOL
           [Desktop Entry]
           Name=SmartSpin2k Config App
-          Exec=ss2kconfigapp
+          Exec=/usr/bin/ss2kconfigapp
           Icon=ss2kconfigapp
           Type=Application
           Categories=Utility;
           EOL
           
-          # Copy desktop file to applications directory and create symlink
-          cp AppDir/ss2kconfigapp.desktop AppDir/usr/share/applications/
-          ln -sf usr/share/applications/ss2kconfigapp.desktop AppDir/
+          # Set permissions
+          chmod 755 debian/usr/bin/ss2kconfigapp
+          chmod -R 755 debian/DEBIAN
           
-          # Create AppImage with architecture specified
-          ARCH=x86_64 ./appimagetool AppDir ss2kconfigapp.AppImage
+          # Build the package with architecture in filename
+          dpkg-deb --build debian ss2kconfigapp-${{ matrix.arch }}.deb
 
       - name: Create artifacts
         run: |
           mkdir -p artifacts
-          mv ss2kconfigapp.AppImage artifacts/
+          mv ss2kconfigapp-${{ matrix.arch }}.deb artifacts/
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -199,7 +261,7 @@ jobs:
           path: artifacts/
 
   create-release:
-    needs: [prepare, build-macos, build-linux]
+    needs: [prepare, build-android, build-macos, build-linux]
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts
@@ -210,8 +272,10 @@ jobs:
       - name: Prepare release bundle
         run: |
           mkdir -p release
+          cp all-artifacts/android-artifacts/ss2kconfigapp.apk release/ss2kconfigapp-${{ needs.prepare.outputs.version }}.apk
           cp all-artifacts/macos-artifacts/ss2kconfigapp${{ needs.prepare.outputs.version }}.zip release/
-          cp all-artifacts/linux-artifacts/ss2kconfigapp.AppImage release/ss2kconfigapp-${{ needs.prepare.outputs.version }}.AppImage
+          cp all-artifacts/linux-artifacts/ss2kconfigapp-amd64.deb release/ss2kconfigapp-${{ needs.prepare.outputs.version }}-amd64.deb
+          cp all-artifacts/linux-artifacts/ss2kconfigapp-arm64.deb release/ss2kconfigapp-${{ needs.prepare.outputs.version }}-arm64.deb
 
       - name: Create release
         uses: softprops/action-gh-release@v1
@@ -225,5 +289,7 @@ jobs:
           generate_release_notes: true
           body: ${{ github.event.head_commit.message }}
           files: |
+            release/ss2kconfigapp-${{ needs.prepare.outputs.version }}.apk
             release/ss2kconfigapp${{ needs.prepare.outputs.version }}.zip
-            release/ss2kconfigapp-${{ needs.prepare.outputs.version }}.AppImage
+            release/ss2kconfigapp-${{ needs.prepare.outputs.version }}-amd64.deb
+            release/ss2kconfigapp-${{ needs.prepare.outputs.version }}-arm64.deb
