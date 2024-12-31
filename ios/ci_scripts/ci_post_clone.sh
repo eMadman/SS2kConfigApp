@@ -6,6 +6,10 @@ set -e
 # The default execution directory of this script is the ci_scripts directory.
 cd $CI_PRIMARY_REPOSITORY_PATH # change working directory to the root of your cloned repo.
 
+# Export environment variables
+export STRAVA_CLIENT_ID=$STRAVA_CLIENT_ID
+export STRAVA_CLIENT_SECRET=$STRAVA_CLIENT_SECRET
+
 # Install Flutter using git.
 git clone https://github.com/flutter/flutter.git --depth 1 -b 3.22.3 $HOME/flutter
 export PATH="$PATH:$HOME/flutter/bin"
