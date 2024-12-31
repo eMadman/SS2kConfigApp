@@ -185,19 +185,41 @@ jobs:
 
       - name: Install Linux dependencies
         run: |
-          sudo dpkg --add-architecture ${{ matrix.arch }}
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev:${{ matrix.arch }} libx11-dev:${{ matrix.arch }} pkg-config cmake ninja-build libblkid-dev:${{ matrix.arch }} liblzma-dev:${{ matrix.arch }} libsecret-1-dev:${{ matrix.arch }} libjsoncpp-dev:${{ matrix.arch }}
-          sudo apt-get install -y libgstreamer1.0-dev:${{ matrix.arch }} libgstreamer-plugins-base1.0-dev:${{ matrix.arch }} libunwind-dev:${{ matrix.arch }}
-          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+          if [ "${{ matrix.arch }}" = "arm64" ]; then
+            # For arm64, use container-based build
+            docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+            docker run --platform linux/arm64 --rm -v $(pwd):/work -w /work ubuntu:22.04 /bin/bash -c '
+              apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
+              libgtk-3-dev libx11-dev pkg-config cmake ninja-build \
+              libblkid-dev liblzma-dev libsecret-1-dev libjsoncpp-dev \
+              libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libunwind-dev \
+              build-essential
+            '
+          else
+            # For amd64, install normally
+            sudo apt-get update
+            sudo apt-get install -y \
+              libgtk-3-dev libx11-dev pkg-config cmake ninja-build \
+              libblkid-dev liblzma-dev libsecret-1-dev libjsoncpp-dev \
+              libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libunwind-dev
+          fi
 
       - name: Build Linux App
         run: |
           flutter config --enable-linux-desktop
           if [ "${{ matrix.arch }}" = "arm64" ]; then
-            export CC=aarch64-linux-gnu-gcc
-            export CXX=aarch64-linux-gnu-g++
-            flutter build linux --release --no-tree-shake-icons --target-platform=linux-arm64
+            docker run --platform linux/arm64 --rm -v $(pwd):/work -w /work ubuntu:22.04 /bin/bash -c '
+              # Install Flutter dependencies
+              apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl git unzip xz-utils zip libglu1-mesa
+              
+              # Install Flutter SDK
+              git clone https://github.com/flutter/flutter.git -b stable /flutter
+              export PATH="/flutter/bin:$PATH"
+              
+              # Build the app
+              flutter config --enable-linux-desktop
+              flutter build linux --release --no-tree-shake-icons --target-platform=linux-arm64
+            '
           else
             flutter build linux --release --no-tree-shake-icons
           fi
