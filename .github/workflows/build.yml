@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - develop
+  workflow_dispatch:
 
 env:
   STRAVA_CLIENT_ID: ${{ secrets.STRAVA_CLIENT_ID }}
