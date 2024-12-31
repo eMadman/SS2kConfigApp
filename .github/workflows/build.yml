@@ -166,7 +166,9 @@ jobs:
           
           # Copy application files
           cp -r build/linux/x64/release/bundle/* AppDir/usr/bin/
+          # Copy icon to both hicolor directory and AppDir root
           cp assets/icons/ss2kv3.png AppDir/usr/share/icons/hicolor/256x256/apps/ss2kconfigapp.png
+          cp assets/icons/ss2kv3.png AppDir/ss2kconfigapp.png
           
           # Create desktop file in AppDir root
           cat > AppDir/ss2kconfigapp.desktop << EOL
