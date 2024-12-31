@@ -28,7 +28,7 @@ dependencies:
   wakelock_plus: ^1.2.8
   http: ^1.2.0
   font_awesome_flutter: ^10.7.0
-  json_theme: ^6.5.3+5
+  json_theme: 6.5.3+5
   fl_chart: ^0.69.2
   flutter_archive: ^6.0.3
   provider: ^6.1.1
