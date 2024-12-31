@@ -1,4 +1,4 @@
-name: SS2kConfigApp
+name: ss2kconfigapp
 description: Configures the SmartSpin2k using BLE
 version: 1.0.8+22
 
@@ -15,9 +15,13 @@ dependencies:
   flutter:
     sdk: flutter
 
-  flutter_blue_plus: ^1.33.1
+  flutter_blue_plus:
+    git:
+      url: https://github.com/tnc1997/flutter-blue-plus.git
+      path: packages/flutter_blue_plus
+      ref: flutter_blue_plus-v1.0.0
   #dynamic_color: ^1.6.9
-  flutter_launcher_icons: ^0.13.1
+  flutter_launcher_icons: ^0.14.2
   flutter_native_splash: ^2.3.9
   shared_preferences: ^2.2.0
   #flutter_ota: ^0.1.4
@@ -25,7 +29,7 @@ dependencies:
   http: ^1.2.0
   font_awesome_flutter: ^10.7.0
   json_theme: ^6.5.3+5
-  fl_chart: ^0.68.0
+  fl_chart: ^0.69.2
   flutter_archive: ^6.0.3
   provider: ^6.1.1
   path_provider: ^2.1.5

@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:SS2kConfigApp/utils/workout/workout_controller.dart';
-import 'package:SS2kConfigApp/utils/workout/gpx_file_exporter.dart';
-import 'package:SS2kConfigApp/utils/workout/gpx_to_fit.dart';
-import 'package:SS2kConfigApp/utils/bledata.dart';
+import 'package:ss2kconfigapp/utils/workout/workout_controller.dart';
+import 'package:ss2kconfigapp/utils/workout/gpx_file_exporter.dart';
+import 'package:ss2kconfigapp/utils/workout/gpx_to_fit.dart';
+import 'package:ss2kconfigapp/utils/bledata.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'dart:io';
 import 'package:path/path.dart' as path;

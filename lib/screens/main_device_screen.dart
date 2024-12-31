@@ -5,9 +5,9 @@
  * SPDX-License-Identifier: GPL-2.0-only
  */
 
-import 'package:SS2kConfigApp/screens/power_table_screen.dart';
-import 'package:SS2kConfigApp/widgets/device_header.dart';
-import 'package:SS2kConfigApp/widgets/ss2k_app_bar.dart';
+import 'package:ss2kconfigapp/screens/power_table_screen.dart';
+import 'package:ss2kconfigapp/widgets/device_header.dart';
+import 'package:ss2kconfigapp/widgets/ss2k_app_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 

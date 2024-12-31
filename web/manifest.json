@@ -1,0 +1,42 @@
+{
+    "name": "SS2K Config App",
+    "short_name": "SS2K Config",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#0175C2",
+    "theme_color": "#0175C2",
+    "description": "SmartSpin2k Configuration Application",
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false,
+    "permissions": [
+        "bluetooth",
+        {
+            "name": "bluetooth",
+            "description": "Required for Bluetooth device scanning and connection"
+        }
+    ],
+    "icons": [
+        {
+            "src": "icons/Icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "icons/Icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}

@@ -1,7 +1,7 @@
-# SS2kConfigApp Documentation
+# ss2kconfigapp Documentation
 
 ## Project Overview
-SS2kConfigApp is a Flutter-based mobile application for controlling and configuring SmartSpin2k devices. It provides a comprehensive interface for device management, workout control, and performance monitoring. The app integrates Bluetooth connectivity, workout tracking, and firmware management capabilities.
+ss2kconfigapp is a Flutter-based mobile application for controlling and configuring SmartSpin2k devices. It provides a comprehensive interface for device management, workout control, and performance monitoring. The app integrates Bluetooth connectivity, workout tracking, and firmware management capabilities.
 
 ## Core Components:
 
@@ -34,7 +34,7 @@ SS2kConfigApp is a Flutter-based mobile application for controlling and configur
 
 The codebase is organized into screens, widgets, and utilities, with clear separation of concerns and modular architecture. Each component is designed for reusability and maintainability, with comprehensive error handling and user feedback mechanisms.
 
-# SS2kConfigApp Codebase Overview
+# ss2kconfigapp Codebase Overview
 
 ### `main.dart`
 - **Purpose**: Application entry point and root widget setup

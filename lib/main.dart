@@ -8,6 +8,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:app_links/app_links.dart';
 import 'package:provider/provider.dart';
@@ -67,7 +68,7 @@ class _SmartSpin2kAppState extends State<SmartSpin2kApp> {
     // Handle initial URI if the app was launched with one
     final uri = await _appLinks.getInitialLink();
     if (uri != null) {
-      _handleDeepLink(uri);
+   _handleDeepLink(uri);
     }
 
     // Handle URI when app is already running
@@ -158,7 +159,7 @@ class _SmartSpin2kAppState extends State<SmartSpin2kApp> {
 
   @override
   Widget build(BuildContext context) {
-    Widget screen = _adapterState == BluetoothAdapterState.on
+    Widget screen = kIsWeb || _adapterState == BluetoothAdapterState.on
         ? const ScanScreen()
         : BluetoothOffScreen(adapterState: _adapterState);
 

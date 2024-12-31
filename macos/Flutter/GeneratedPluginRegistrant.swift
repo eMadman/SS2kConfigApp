@@ -9,7 +9,7 @@ import app_links
 import audio_session
 import audioplayers_darwin
 import flutter_archive
-import flutter_blue_plus
+import flutter_blue_plus_macos
 import flutter_tts
 import just_audio
 import package_info_plus

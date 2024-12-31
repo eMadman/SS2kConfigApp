@@ -5,18 +5,18 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "SS2kConfigApp",
+            "name": "ss2kconfigapp",
             "request": "launch",
             "type": "dart"
         },
         {
-            "name": "SS2kConfigApp (profile mode)",
+            "name": "ss2kconfigapp (profile mode)",
             "request": "launch",
             "type": "dart",
             "flutterMode": "profile"
         },
         {
-            "name": "SS2kConfigApp (release mode)",
+            "name": "ss2kconfigapp (release mode)",
             "request": "launch",
             "type": "dart",
             "flutterMode": "release"
