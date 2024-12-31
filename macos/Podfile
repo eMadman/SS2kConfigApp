@@ -30,6 +30,9 @@ target 'Runner' do
   use_frameworks!
   use_modular_headers!
 
+  # Override flutter_blue_plus pod to use the original podspec
+  pod 'flutter_blue_plus', :git => 'https://github.com/fluttercommunity/flutter_blue_plus.git', :tag => '1.34.5'
+  
   flutter_install_all_macos_pods File.dirname(File.realpath(__FILE__))
   target 'RunnerTests' do
     inherit! :search_paths

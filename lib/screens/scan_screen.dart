@@ -5,7 +5,6 @@
  * SPDX-License-Identifier: GPL-2.0-only
  */
 import 'dart:async';
-import 'dart:io' if (dart.library.html) 'dart:html' as platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:io' as io show Platform;
 
