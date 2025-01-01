@@ -10,6 +10,7 @@ import 'dart:io' as io show Platform;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../utils/constants.dart';
 import 'main_device_screen.dart';
@@ -220,6 +221,23 @@ class _ScanScreenState extends State<ScanScreen> {
                             style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                           ),
                           SizedBox(height: 10),
+                          InkWell(
+                            onTap: () async {
+                              Uri url = Uri(scheme: 'https',host:'SmartSpin2k.com', path: '/', fragment: '');//http://SmartSpin2k.com";
+                              if (await canLaunchUrl(url)) {
+                                await launchUrl(url);
+                              }
+                            },
+                            child: Text(
+                              'SmartSpin2k is a device that adds automatic resistance and virtual shifting to spin bikes. Click to learn more.',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.blue,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: 10),
                           Text(
                             'If you cannot find your SmartSpin2k, try the following steps:',
                             style: TextStyle(fontSize: 18),
@@ -229,7 +247,7 @@ class _ScanScreenState extends State<ScanScreen> {
                             '1. Ensure your SmartSpin2k is powered on and within range.\n'
                             '2. Turn off and on the Bluetooth on your device, then try scanning again.\n'
                             '3. Restart your SmartSpin2k device.\n'
-                            '4. Make sure the SmartSpin2k is not connected to another ConfigApp or QZ.\n'
+                            '4. Each SmartSpin2k has a max connection of 3 apps (including this one). Close some if needed.\n'
                             '5. If none of these steps work, please contact support for further assistance.',
                             style: TextStyle(fontSize: 16),
                           ),
