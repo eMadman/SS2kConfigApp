@@ -272,13 +272,37 @@ jobs:
               fi
             '
             
-            # Move the build output to the expected location
+            # Ensure the build output is in the correct location
             if [ -d build/linux/arm64/release/bundle ]; then
-              mkdir -p build/linux/x64/release/
-              mv build/linux/arm64/release/bundle build/linux/x64/release/
+              # Keep the arm64 path structure
+              mkdir -p build/linux/arm64/release/
+              # Make sure we don't have any leftover files
+              rm -rf build/linux/x64
             fi
           else
-            flutter build linux --release --no-tree-shake-icons
+            # For AMD64 build
+            # Ensure all required dependencies are installed
+            sudo apt-get update
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+              clang cmake ninja-build pkg-config libgtk-3-dev \
+              liblzma-dev libstdc++-12-dev \
+              libsecret-1-dev libjsoncpp-dev \
+              libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+              libunwind-dev libglu1-mesa fontconfig libpulse0 libasound2
+
+            # Set environment variables
+            export CXX=clang++
+            
+            # Configure Flutter
+            flutter config --enable-linux-desktop
+            flutter config --no-analytics
+            
+            # Get dependencies and build
+            flutter pub get
+            flutter build linux \
+              --release \
+              --no-tree-shake-icons \
+              -v
           fi
           
       - name: Create Debian Package
@@ -302,11 +326,23 @@ jobs:
           EOL
           
           # Copy application files based on architecture
+          BUILD_PATH=""
           if [ "${{ matrix.arch }}" = "arm64" ]; then
-            cp -r build/linux/arm64/release/bundle/* debian/usr/bin/
+            BUILD_PATH="build/linux/arm64/release/bundle"
           else
-            cp -r build/linux/x64/release/bundle/* debian/usr/bin/
+            BUILD_PATH="build/linux/x64/release/bundle"
           fi
+
+          # Verify build path exists
+          if [ ! -d "$BUILD_PATH" ]; then
+            echo "Error: Build output not found at $BUILD_PATH"
+            ls -la build/linux/
+            exit 1
+          fi
+
+          # Copy files
+          echo "Copying files from $BUILD_PATH to debian/usr/bin/"
+          cp -rv "$BUILD_PATH"/* debian/usr/bin/
           
           # Copy icon
           cp assets/icons/ss2kv3.png debian/usr/share/icons/hicolor/256x256/apps/ss2kconfigapp.png
