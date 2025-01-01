@@ -62,18 +62,24 @@ jobs:
           flutter-version: '3.22.3'
 
       - name: Create env.local.dart
+        env:
+          STRAVA_CLIENT_ID: ${{ secrets.STRAVA_CLIENT_ID }}
+          STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
         run: |
           mkdir -p lib/config
           umask 077
-          cat > lib/config/env.local.dart << EOL
+          cat > lib/config/env.local.dart << \EOL
           class Environment {
-            static const String stravaClientId = '${{ secrets.STRAVA_CLIENT_ID }}';
-            static const String stravaClientSecret = '${{ secrets.STRAVA_CLIENT_SECRET }}';
+            static const String stravaClientId = '${STRAVA_CLIENT_ID}';
+            static const String stravaClientSecret = '${STRAVA_CLIENT_SECRET}';
             
             static bool get hasStravaConfig =>
               stravaClientId.isNotEmpty && stravaClientSecret.isNotEmpty;
           }
           EOL
+          # Replace environment variables
+          envsubst < lib/config/env.local.dart > lib/config/env.local.dart.tmp
+          mv lib/config/env.local.dart.tmp lib/config/env.local.dart
 
       - name: Build Android APK
         run: flutter build apk --no-tree-shake-icons
@@ -107,18 +113,24 @@ jobs:
           env | grep -i STRAVA || true
           
       - name: Create env.local.dart
+        env:
+          STRAVA_CLIENT_ID: ${{ secrets.STRAVA_CLIENT_ID }}
+          STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
         run: |
           mkdir -p lib/config
           umask 077
-          cat > lib/config/env.local.dart << EOL
+          cat > lib/config/env.local.dart << \EOL
           class Environment {
-            static const String stravaClientId = '${{ secrets.STRAVA_CLIENT_ID }}';
-            static const String stravaClientSecret = '${{ secrets.STRAVA_CLIENT_SECRET }}';
+            static const String stravaClientId = '${STRAVA_CLIENT_ID}';
+            static const String stravaClientSecret = '${STRAVA_CLIENT_SECRET}';
             
             static bool get hasStravaConfig =>
               stravaClientId.isNotEmpty && stravaClientSecret.isNotEmpty;
           }
           EOL
+          # Replace environment variables
+          envsubst < lib/config/env.local.dart > lib/config/env.local.dart.tmp
+          mv lib/config/env.local.dart.tmp lib/config/env.local.dart
           
           # Verify file exists but don't show contents
           ls -l lib/config/env.local.dart
@@ -164,18 +176,24 @@ jobs:
           flutter-version: '3.22.3'
 
       - name: Create env.local.dart
+        env:
+          STRAVA_CLIENT_ID: ${{ secrets.STRAVA_CLIENT_ID }}
+          STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
         run: |
           mkdir -p lib/config
           umask 077
-          cat > lib/config/env.local.dart << EOL
+          cat > lib/config/env.local.dart << \EOL
           class Environment {
-            static const String stravaClientId = '${{ secrets.STRAVA_CLIENT_ID }}';
-            static const String stravaClientSecret = '${{ secrets.STRAVA_CLIENT_SECRET }}';
+            static const String stravaClientId = '${STRAVA_CLIENT_ID}';
+            static const String stravaClientSecret = '${STRAVA_CLIENT_SECRET}';
             
             static bool get hasStravaConfig =>
               stravaClientId.isNotEmpty && stravaClientSecret.isNotEmpty;
           }
           EOL
+          # Replace environment variables
+          envsubst < lib/config/env.local.dart > lib/config/env.local.dart.tmp
+          mv lib/config/env.local.dart.tmp lib/config/env.local.dart
 
       - name: Set up QEMU
         if: matrix.arch == 'arm64'
@@ -209,7 +227,7 @@ jobs:
           flutter config --enable-linux-desktop
           if [ "${{ matrix.arch }}" = "arm64" ]; then
             # Create a Dockerfile for arm64 build
-            cat > Dockerfile.arm64 << 'EOL'
+            cat > Dockerfile.arm64 << \EOL
             FROM --platform=linux/arm64 ubuntu:22.04
             
             # Install dependencies
@@ -222,7 +240,9 @@ jobs:
                 # Additional dependencies for Flutter and build
                 libgtk-3-0 libblkid1 liblzma5 libsecret-1-0 libjsoncpp25 \
                 libgstreamer1.0-0 libgstreamer-plugins-base1.0-0 libunwind8 \
-                fontconfig libpulse0 libasound2
+                fontconfig libpulse0 libasound2 \
+                # Required for envsubst command
+                gettext-base
 
             # Install Flutter SDK
             RUN git clone https://github.com/flutter/flutter.git -b 3.22.3 /flutter
