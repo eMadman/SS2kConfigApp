@@ -42,7 +42,8 @@ class _WorkoutTextEventOverlayState extends State<WorkoutTextEventOverlay> with 
         }
       });
     
-    // Initialize the scroll animation
+    // Initialize the scroll animation with null end position
+    // Will be set dynamically based on text width in build method
     _scrollAnimation = Tween<Offset>(
       begin: const Offset(1.0, 0.0),
       end: const Offset(-1.0, 0.0),
@@ -123,6 +124,31 @@ class _WorkoutTextEventOverlayState extends State<WorkoutTextEventOverlay> with 
     // Speak only the latest message if it hasn't been spoken yet
     widget.ttsSettings.speak(latestEvent.message);
 
+    // Calculate text width and adjust end position
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: latestEvent.message,
+        style: TextStyle(
+          fontSize: WorkoutTextStyle.scrollingText,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    
+    final screenWidth = MediaQuery.of(context).size.width;
+    final textWidth = textPainter.width;
+    final endOffset = -(textWidth / screenWidth + 1.0);
+    
+    // Update animation with new end position
+    _scrollAnimation = Tween<Offset>(
+      begin: const Offset(1.0, 0.0),
+      end: Offset(endOffset, 0.0),
+    ).animate(CurvedAnimation(
+      parent: _scrollController,
+      curve: Curves.linear,
+    ));
+    
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
