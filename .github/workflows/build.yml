@@ -144,7 +144,7 @@ jobs:
       - name: Create artifacts
         run: |
           mkdir -p artifacts
-          zip -r artifacts/ss2kconfigapp${{ needs.prepare.outputs.version }}.zip build/ios/iphoneos build/macos/Build/Products/Release
+          zip -r artifacts/ss2kconfigapp-${{ needs.prepare.outputs.version }}.zip build/ios/iphoneos build/macos/Build/Products/Release
 
       # Clean up sensitive files
       - name: Clean up env.local.dart
