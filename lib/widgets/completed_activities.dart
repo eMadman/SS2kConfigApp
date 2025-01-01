@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../utils/workout/fit_file_reader.dart';
 import '../services/strava_service.dart';
-import '../utils/workout/gpx_file_exporter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:intl/intl.dart';
 

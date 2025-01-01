@@ -44,9 +44,9 @@ jobs:
         id: set_version
         run: echo "::set-output name=version::$NEW_TAG"
 
-  build-macos:
+  build-android:
     needs: prepare
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       
@@ -61,6 +61,51 @@ jobs:
         with:
           flutter-version: '3.22.3'
 
+      - name: Create env.local.dart
+        env:
+          STRAVA_CLIENT_ID: ${{ secrets.STRAVA_CLIENT_ID }}
+          STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
+        run: |
+          mkdir -p lib/config
+          umask 077
+          cat > lib/config/env.local.dart <<EOL
+          class Environment {
+            static const String stravaClientId = '${STRAVA_CLIENT_ID}';
+            static const String stravaClientSecret = '${STRAVA_CLIENT_SECRET}';
+            
+            static bool get hasStravaConfig =>
+              stravaClientId.isNotEmpty && stravaClientSecret.isNotEmpty;
+          }
+          EOL
+          # Replace environment variables
+          envsubst < lib/config/env.local.dart > lib/config/env.local.dart.tmp
+          mv lib/config/env.local.dart.tmp lib/config/env.local.dart
+
+      - name: Build Android APK
+        run: flutter build apk --no-tree-shake-icons
+
+      - name: Create artifacts
+        run: |
+          mkdir -p artifacts
+          mv build/app/outputs/flutter-apk/app-release.apk artifacts/ss2kconfigapp.apk
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-artifacts
+          path: artifacts/
+
+  build-macos:
+    needs: prepare
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v1
+        with:
+          flutter-version: '3.22.3'
+
       # Debug environment variables
       - name: Debug Environment Variables
         run: |
@@ -68,27 +113,27 @@ jobs:
           env | grep -i STRAVA || true
           
       - name: Create env.local.dart
+        env:
+          STRAVA_CLIENT_ID: ${{ secrets.STRAVA_CLIENT_ID }}
+          STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
         run: |
           mkdir -p lib/config
           umask 077
-          cat > lib/config/env.local.dart << EOL
+          cat > lib/config/env.local.dart << \EOL
           class Environment {
-            static const String stravaClientId = '${{ secrets.STRAVA_CLIENT_ID }}';
-            static const String stravaClientSecret = '${{ secrets.STRAVA_CLIENT_SECRET }}';
+            static const String stravaClientId = '${STRAVA_CLIENT_ID}';
+            static const String stravaClientSecret = '${STRAVA_CLIENT_SECRET}';
             
             static bool get hasStravaConfig =>
               stravaClientId.isNotEmpty && stravaClientSecret.isNotEmpty;
           }
           EOL
+          # Replace environment variables
+          envsubst < lib/config/env.local.dart > lib/config/env.local.dart.tmp
+          mv lib/config/env.local.dart.tmp lib/config/env.local.dart
           
           # Verify file exists but don't show contents
           ls -l lib/config/env.local.dart
-
-      - name: Build Android APK
-        run: flutter build apk --no-tree-shake-icons
-
-      - name: Rename APK to ss2kconfigapp.apk
-        run: mv build/app/outputs/flutter-apk/app-release.apk build/ss2kconfigapp.apk
 
       - name: Build iOS App
         run: flutter build ios --release --no-codesign --no-tree-shake-icons
@@ -99,7 +144,7 @@ jobs:
       - name: Create artifacts
         run: |
           mkdir -p artifacts
-          zip -r artifacts/ss2kconfigapp${{ needs.prepare.outputs.version }}.zip build/ss2kconfigapp.apk build/ios/iphoneos build/macos/Build/Products/Release
+          zip -r artifacts/ss2kconfigapp${{ needs.prepare.outputs.version }}.zip build/ios/iphoneos build/macos/Build/Products/Release
 
       # Clean up sensitive files
       - name: Clean up env.local.dart
@@ -119,6 +164,9 @@ jobs:
   build-linux:
     needs: prepare
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
     steps:
       - uses: actions/checkout@v2
 
@@ -128,78 +176,200 @@ jobs:
           flutter-version: '3.22.3'
 
       - name: Create env.local.dart
+        env:
+          STRAVA_CLIENT_ID: ${{ secrets.STRAVA_CLIENT_ID }}
+          STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
         run: |
           mkdir -p lib/config
           umask 077
-          cat > lib/config/env.local.dart << EOL
+          cat > lib/config/env.local.dart <<EOL
           class Environment {
-            static const String stravaClientId = '${{ secrets.STRAVA_CLIENT_ID }}';
-            static const String stravaClientSecret = '${{ secrets.STRAVA_CLIENT_SECRET }}';
+            static const String stravaClientId = '${STRAVA_CLIENT_ID}';
+            static const String stravaClientSecret = '${STRAVA_CLIENT_SECRET}';
             
             static bool get hasStravaConfig =>
               stravaClientId.isNotEmpty && stravaClientSecret.isNotEmpty;
           }
           EOL
+          # Replace environment variables
+          envsubst < lib/config/env.local.dart > lib/config/env.local.dart.tmp
+          mv lib/config/env.local.dart.tmp lib/config/env.local.dart
+
+      - name: Set up QEMU
+        if: matrix.arch == 'arm64'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
 
       - name: Install Linux dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libx11-dev pkg-config cmake ninja-build libblkid-dev liblzma-dev libsecret-1-dev libjsoncpp-dev libunwind-dev
-          sudo apt-get install -y libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
-          sudo apt-get install -y fuse libfuse2 appstream
+          if [ "${{ matrix.arch }}" = "arm64" ]; then
+            # For arm64, use container-based build
+            docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+            docker run --platform linux/arm64 --rm -v $(pwd):/work -w /work ubuntu:22.04 /bin/bash -c '
+              apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
+              libgtk-3-dev libx11-dev pkg-config cmake ninja-build \
+              libblkid-dev liblzma-dev libsecret-1-dev libjsoncpp-dev \
+              libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libunwind-dev \
+              build-essential
+            '
+          else
+            # For amd64, install normally
+            sudo apt-get update
+            sudo apt-get install -y \
+              libgtk-3-dev libx11-dev pkg-config cmake ninja-build \
+              libblkid-dev liblzma-dev libsecret-1-dev libjsoncpp-dev \
+              libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libunwind-dev
+          fi
 
-      - name: Build Linux App
+      - name: Enable Linux Desktop
+        run: flutter config --enable-linux-desktop
+
+      - name: Build Linux App (AMD64)
+        if: matrix.arch == 'amd64'
         run: |
-          flutter config --enable-linux-desktop
-          flutter build linux --release --no-tree-shake-icons
+          # Install dependencies
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            clang cmake ninja-build pkg-config libgtk-3-dev \
+            liblzma-dev libstdc++-12-dev \
+            libsecret-1-dev libjsoncpp-dev \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+            libunwind-dev libglu1-mesa fontconfig libpulse0 libasound2
+
+          # Set environment variables
+          export CXX=clang++
           
-      - name: Create AppImage
+          # Configure Flutter
+          flutter config --no-analytics
+          
+          # Get dependencies and build
+          flutter pub get
+          flutter build linux \
+            --release \
+            --no-tree-shake-icons \
+            -v
+
+      - name: Build Linux App (ARM64)
+        if: matrix.arch == 'arm64'
         run: |
-          # Install appimagetool
-          wget -O appimagetool "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
-          chmod +x appimagetool
+          # Create Dockerfile
+          echo "FROM --platform=linux/arm64 ubuntu:22.04" > Dockerfile.arm64
+          echo "RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \\" >> Dockerfile.arm64
+          echo "    curl git unzip xz-utils zip libglu1-mesa cmake ninja-build clang \\" >> Dockerfile.arm64
+          echo "    libgtk-3-dev libx11-dev pkg-config \\" >> Dockerfile.arm64
+          echo "    libblkid-dev liblzma-dev libsecret-1-dev libjsoncpp-dev \\" >> Dockerfile.arm64
+          echo "    libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libunwind-dev \\" >> Dockerfile.arm64
+          echo "    wget xz-utils libglu1-mesa \\" >> Dockerfile.arm64
+          echo "    libgtk-3-0 libblkid1 liblzma5 libsecret-1-0 libjsoncpp25 \\" >> Dockerfile.arm64
+          echo "    libgstreamer1.0-0 libgstreamer-plugins-base1.0-0 libunwind8 \\" >> Dockerfile.arm64
+          echo "    fontconfig libpulse0 libasound2 gettext-base" >> Dockerfile.arm64
+          echo "RUN git clone https://github.com/flutter/flutter.git -b 3.22.3 /flutter" >> Dockerfile.arm64
+          echo "ENV PATH=\"/flutter/bin:$PATH\"" >> Dockerfile.arm64
+          echo "RUN flutter doctor" >> Dockerfile.arm64
+          echo "RUN flutter config --no-analytics" >> Dockerfile.arm64
+          echo "RUN flutter config --enable-linux-desktop" >> Dockerfile.arm64
+          echo "RUN flutter precache --linux" >> Dockerfile.arm64
+          echo "WORKDIR /work" >> Dockerfile.arm64
+          echo "ENV FLUTTER_ROOT=/flutter" >> Dockerfile.arm64
+          echo "ENV CXX=clang++" >> Dockerfile.arm64
+
+          # Build Docker image
+          docker build --platform linux/arm64 -t flutter-arm64-builder -f Dockerfile.arm64 .
+
+          # Run build in container
+          docker run --platform linux/arm64 --rm -v $(pwd):/work flutter-arm64-builder /bin/bash -c '
+            mkdir -p lib/config
+            if [ ! -f lib/config/env.local.dart ]; then
+              echo "Error: env.local.dart not found!"
+              exit 1
+            fi
+            flutter pub get
+            flutter build linux --release --no-tree-shake-icons --target-platform=linux-arm64 -v
+            if [ ! -d build/linux/arm64/release/bundle ]; then
+              echo "Error: Build output not found!"
+              exit 1
+            fi
+          '
+
+          # Organize build output
+          if [ -d build/linux/arm64/release/bundle ]; then
+            mkdir -p build/linux/arm64/release/
+            rm -rf build/linux/x64
+          fi
           
-          # Create AppDir structure
-          mkdir -p AppDir/usr/bin
-          mkdir -p AppDir/usr/share/applications
-          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+      - name: Create Debian Package
+        run: |
+          # Create package directory structure
+          mkdir -p debian/DEBIAN
+          mkdir -p debian/usr/bin
+          mkdir -p debian/usr/share/applications
+          mkdir -p debian/usr/share/icons/hicolor/256x256/apps
           
-          # Copy application files
-          cp -r build/linux/x64/release/bundle/* AppDir/usr/bin/
-          # Copy icon to both hicolor directory and AppDir root
-          cp assets/icons/ss2kv3.png AppDir/usr/share/icons/hicolor/256x256/apps/ss2kconfigapp.png
-          cp assets/icons/ss2kv3.png AppDir/ss2kconfigapp.png
+          # Create control file
+          cat > debian/DEBIAN/control <<EOL
+          Package: ss2kconfigapp
+          Version: ${{ needs.prepare.outputs.version }}
+          Section: utils
+          Priority: optional
+          Architecture: ${{ matrix.arch }}
+          Maintainer: SmartSpin2k Team
+          Description: SmartSpin2k Configuration Application
+           A Flutter application for configuring and controlling SmartSpin2k devices.
+          EOL
           
-          # Create desktop file in AppDir root
-          cat > AppDir/ss2kconfigapp.desktop << EOL
+          # Copy application files based on architecture
+          BUILD_PATH=""
+          if [ "${{ matrix.arch }}" = "arm64" ]; then
+            BUILD_PATH="build/linux/arm64/release/bundle"
+          else
+            BUILD_PATH="build/linux/x64/release/bundle"
+          fi
+
+          # Verify build path exists
+          if [ ! -d "$BUILD_PATH" ]; then
+            echo "Error: Build output not found at $BUILD_PATH"
+            ls -la build/linux/
+            exit 1
+          fi
+
+          # Copy files
+          echo "Copying files from $BUILD_PATH to debian/usr/bin/"
+          cp -rv "$BUILD_PATH"/* debian/usr/bin/
+          
+          # Copy icon
+          cp assets/icons/ss2kv3.png debian/usr/share/icons/hicolor/256x256/apps/ss2kconfigapp.png
+          
+          # Create desktop file
+          cat > debian/usr/share/applications/ss2kconfigapp.desktop <<EOL
           [Desktop Entry]
           Name=SmartSpin2k Config App
-          Exec=ss2kconfigapp
+          Exec=/usr/bin/ss2kconfigapp
           Icon=ss2kconfigapp
           Type=Application
           Categories=Utility;
           EOL
           
-          # Copy desktop file to applications directory and create symlink
-          cp AppDir/ss2kconfigapp.desktop AppDir/usr/share/applications/
-          ln -sf usr/share/applications/ss2kconfigapp.desktop AppDir/
+          # Set permissions
+          chmod 755 debian/usr/bin/ss2kconfigapp
+          chmod -R 755 debian/DEBIAN
           
-          # Create AppImage with architecture specified
-          ARCH=x86_64 ./appimagetool AppDir ss2kconfigapp.AppImage
+          # Build the package with architecture in filename
+          dpkg-deb --build debian ss2kconfigapp-${{ matrix.arch }}.deb
 
       - name: Create artifacts
         run: |
           mkdir -p artifacts
-          mv ss2kconfigapp.AppImage artifacts/
+          mv ss2kconfigapp-${{ matrix.arch }}.deb artifacts/
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: linux-artifacts
+          name: linux-artifacts-${{ matrix.arch }}
           path: artifacts/
 
   create-release:
-    needs: [prepare, build-macos, build-linux]
+    needs: [prepare, build-android, build-macos, build-linux]
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts
@@ -210,8 +380,10 @@ jobs:
       - name: Prepare release bundle
         run: |
           mkdir -p release
+          cp all-artifacts/android-artifacts/ss2kconfigapp.apk release/ss2kconfigapp-${{ needs.prepare.outputs.version }}.apk
           cp all-artifacts/macos-artifacts/ss2kconfigapp${{ needs.prepare.outputs.version }}.zip release/
-          cp all-artifacts/linux-artifacts/ss2kconfigapp.AppImage release/ss2kconfigapp-${{ needs.prepare.outputs.version }}.AppImage
+          cp all-artifacts/linux-artifacts/ss2kconfigapp-amd64.deb release/ss2kconfigapp-${{ needs.prepare.outputs.version }}-amd64.deb
+          cp all-artifacts/linux-artifacts/ss2kconfigapp-arm64.deb release/ss2kconfigapp-${{ needs.prepare.outputs.version }}-arm64.deb
 
       - name: Create release
         uses: softprops/action-gh-release@v1
@@ -225,5 +397,7 @@ jobs:
           generate_release_notes: true
           body: ${{ github.event.head_commit.message }}
           files: |
+            release/ss2kconfigapp-${{ needs.prepare.outputs.version }}.apk
             release/ss2kconfigapp${{ needs.prepare.outputs.version }}.zip
-            release/ss2kconfigapp-${{ needs.prepare.outputs.version }}.AppImage
+            release/ss2kconfigapp-${{ needs.prepare.outputs.version }}-amd64.deb
+            release/ss2kconfigapp-${{ needs.prepare.outputs.version }}-arm64.deb

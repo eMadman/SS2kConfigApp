@@ -53,12 +53,23 @@ class _SmartSpin2kAppState extends State<SmartSpin2kApp> {
   @override
   void initState() {
     super.initState();
-    _adapterStateStateSubscription = FlutterBluePlus.adapterState.listen((state) {
-      _adapterState = state;
-      if (mounted) {
-        setState(() {});
+    if (!kIsWeb) {
+      try {
+        _adapterStateStateSubscription = FlutterBluePlus.adapterState.listen((state) {
+          _adapterState = state;
+          if (mounted) {
+            setState(() {});
+          }
+        });
+      } catch (e) {
+        debugPrint('Error listening to adapter state: $e');
+        // Set a default state for web
+        _adapterState = BluetoothAdapterState.on;
       }
-    });
+    } else {
+      // For web platform, assume adapter is on
+      _adapterState = BluetoothAdapterState.on;
+    }
     _initDeepLinkHandling();
   }
 
@@ -189,12 +200,18 @@ class BluetoothAdapterStateObserver extends NavigatorObserver {
     super.didPush(route, previousRoute);
     if (route.settings.name == '/MainDeviceScreen') {
       // Start listening to Bluetooth state changes when a new route is pushed
-      _adapterStateSubscription ??= FlutterBluePlus.adapterState.listen((state) {
-        if (state != BluetoothAdapterState.on) {
-          // Pop the current route if Bluetooth is off
-          navigator?.pop();
+      if (!kIsWeb) {
+        try {
+          _adapterStateSubscription ??= FlutterBluePlus.adapterState.listen((state) {
+            if (state != BluetoothAdapterState.on) {
+              // Pop the current route if Bluetooth is off
+              navigator?.pop();
+            }
+          });
+        } catch (e) {
+          debugPrint('Error listening to adapter state in observer: $e');
         }
-      });
+      }
     }
   }
 

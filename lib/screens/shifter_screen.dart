@@ -134,7 +134,7 @@ class _ShifterScreenState extends State<ShifterScreen> {
     return Container(
       padding: EdgeInsets.symmetric(vertical: 16, horizontal: 32),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceVariant,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(14.0),
       ),
       child: Text(
