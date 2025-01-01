@@ -82,12 +82,44 @@ class _ScanResultTileState extends State<ScanResultTile> {
   }
 
   Widget _buildConnectButton(BuildContext context) {
-    return ElevatedButton(
-      child: isConnected ? const Text('OPEN') : const Text('CONNECT'),
-      onPressed: (this.widget.result.advertisementData.connectable) ? this.widget.onTap : null,
-      style: ElevatedButton.styleFrom(
-          backgroundColor: ThemeData().colorScheme.secondary, foregroundColor: ThemeData().colorScheme.onSecondary),
-    );
+    if (isConnected) {
+      return Container(
+        alignment: Alignment.centerRight,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ElevatedButton(
+              child: const Text('OPEN'),
+              onPressed: (this.widget.result.advertisementData.connectable) ? this.widget.onTap : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: ThemeData().colorScheme.secondary,
+                foregroundColor: ThemeData().colorScheme.onSecondary,
+              ),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton(
+              child: const Text('DISCONNECT'),
+              onPressed: () {
+                this.widget.result.device.disconnect();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: ThemeData().colorScheme.error,
+                foregroundColor: ThemeData().colorScheme.onError,
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      return ElevatedButton(
+        child: const Text('CONNECT'),
+        onPressed: (this.widget.result.advertisementData.connectable) ? this.widget.onTap : null,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: ThemeData().colorScheme.secondary,
+          foregroundColor: ThemeData().colorScheme.onSecondary,
+        ),
+      );
+    }
   }
 
   Widget _buildAdvRow(BuildContext context, String title, String value) {
