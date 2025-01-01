@@ -87,7 +87,7 @@ jobs:
       - name: Create artifacts
         run: |
           mkdir -p artifacts
-          mv build/app/outputs/flutter-apk/app-release.apk artifacts/ss2kconfigapp.apk
+          mv build/app/outputs/flutter-apk/app-release.apk artifacts/ss2kconfigapp-${{ needs.prepare.outputs.version }}.apk
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -381,7 +381,7 @@ jobs:
         run: |
           mkdir -p release
           cp all-artifacts/android-artifacts/ss2kconfigapp.apk release/ss2kconfigapp-${{ needs.prepare.outputs.version }}.apk
-          cp all-artifacts/macos-artifacts/ss2kconfigapp${{ needs.prepare.outputs.version }}.zip release/
+          cp all-artifacts/macos-artifacts/ss2kconfigapp-${{ needs.prepare.outputs.version }}.zip release/
           cp all-artifacts/linux-artifacts-amd64/ss2kconfigapp-amd64.deb release/ss2kconfigapp-${{ needs.prepare.outputs.version }}-amd64.deb
           cp all-artifacts/linux-artifacts-arm64/ss2kconfigapp-arm64.deb release/ss2kconfigapp-${{ needs.prepare.outputs.version }}-arm64.deb
 
