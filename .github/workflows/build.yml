@@ -222,107 +222,80 @@ jobs:
               libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libunwind-dev
           fi
 
-      - name: Build Linux App
+      - name: Enable Linux Desktop
+        run: flutter config --enable-linux-desktop
+
+      - name: Build Linux App (AMD64)
+        if: matrix.arch == 'amd64'
         run: |
-          flutter config --enable-linux-desktop
-          if [ "${{ matrix.arch }}" = "arm64" ]; then
-            # Create a Dockerfile for arm64 build
-            cat > Dockerfile.arm64 <<EOL
-            FROM --platform=linux/arm64 ubuntu:22.04
-            
-            # Install dependencies
-            RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
-                curl git unzip xz-utils zip libglu1-mesa cmake ninja-build clang \
-                libgtk-3-dev libx11-dev pkg-config \
-                libblkid-dev liblzma-dev libsecret-1-dev libjsoncpp-dev \
-                libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libunwind-dev \
-                wget xz-utils libglu1-mesa \
-                # Additional dependencies for Flutter and build
-                libgtk-3-0 libblkid1 liblzma5 libsecret-1-0 libjsoncpp25 \
-                libgstreamer1.0-0 libgstreamer-plugins-base1.0-0 libunwind8 \
-                fontconfig libpulse0 libasound2 \
-                # Required for envsubst command
-                gettext-base
+          # Install dependencies
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            clang cmake ninja-build pkg-config libgtk-3-dev \
+            liblzma-dev libstdc++-12-dev \
+            libsecret-1-dev libjsoncpp-dev \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+            libunwind-dev libglu1-mesa fontconfig libpulse0 libasound2
 
-            # Install Flutter SDK
-            RUN git clone https://github.com/flutter/flutter.git -b 3.22.3 /flutter
-            ENV PATH="/flutter/bin:$PATH"
-            
-            # Pre-download Flutter artifacts and configure
-            RUN flutter doctor
-            RUN flutter config --no-analytics
-            RUN flutter config --enable-linux-desktop
-            RUN flutter precache --linux
-            
-            WORKDIR /work
-            
-            # Set default environment variables
-            ENV FLUTTER_ROOT=/flutter
-            ENV CXX=clang++
-            EOL
-            
-            # Build the Docker image
-            docker build --platform linux/arm64 -t flutter-arm64-builder -f Dockerfile.arm64 .
-            
-            # Run the build in the container
-            docker run --platform linux/arm64 --rm -v $(pwd):/work flutter-arm64-builder /bin/bash -c '
-              # Ensure the config directory exists
-              mkdir -p lib/config
-              
-              # Copy env.local.dart (it should already exist from previous step)
-              if [ ! -f lib/config/env.local.dart ]; then
-                echo "Error: env.local.dart not found!"
-                exit 1
-              fi
-              
-              # Get dependencies
-              flutter pub get
-              
-              # Build the app for arm64
-              flutter build linux \
-                --release \
-                --no-tree-shake-icons \
-                --target-platform=linux-arm64 \
-                -v
-              
-              # Verify the build output exists
-              if [ ! -d build/linux/arm64/release/bundle ]; then
-                echo "Error: Build output not found!"
-                exit 1
-              fi
-            '
-            
-            # Ensure the build output is in the correct location
-            if [ -d build/linux/arm64/release/bundle ]; then
-              # Keep the arm64 path structure
-              mkdir -p build/linux/arm64/release/
-              # Make sure we don't have any leftover files
-              rm -rf build/linux/x64
+          # Set environment variables
+          export CXX=clang++
+          
+          # Configure Flutter
+          flutter config --no-analytics
+          
+          # Get dependencies and build
+          flutter pub get
+          flutter build linux \
+            --release \
+            --no-tree-shake-icons \
+            -v
+
+      - name: Build Linux App (ARM64)
+        if: matrix.arch == 'arm64'
+        run: |
+          # Create Dockerfile
+          echo "FROM --platform=linux/arm64 ubuntu:22.04" > Dockerfile.arm64
+          echo "RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \\" >> Dockerfile.arm64
+          echo "    curl git unzip xz-utils zip libglu1-mesa cmake ninja-build clang \\" >> Dockerfile.arm64
+          echo "    libgtk-3-dev libx11-dev pkg-config \\" >> Dockerfile.arm64
+          echo "    libblkid-dev liblzma-dev libsecret-1-dev libjsoncpp-dev \\" >> Dockerfile.arm64
+          echo "    libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libunwind-dev \\" >> Dockerfile.arm64
+          echo "    wget xz-utils libglu1-mesa \\" >> Dockerfile.arm64
+          echo "    libgtk-3-0 libblkid1 liblzma5 libsecret-1-0 libjsoncpp25 \\" >> Dockerfile.arm64
+          echo "    libgstreamer1.0-0 libgstreamer-plugins-base1.0-0 libunwind8 \\" >> Dockerfile.arm64
+          echo "    fontconfig libpulse0 libasound2 gettext-base" >> Dockerfile.arm64
+          echo "RUN git clone https://github.com/flutter/flutter.git -b 3.22.3 /flutter" >> Dockerfile.arm64
+          echo "ENV PATH=\"/flutter/bin:$PATH\"" >> Dockerfile.arm64
+          echo "RUN flutter doctor" >> Dockerfile.arm64
+          echo "RUN flutter config --no-analytics" >> Dockerfile.arm64
+          echo "RUN flutter config --enable-linux-desktop" >> Dockerfile.arm64
+          echo "RUN flutter precache --linux" >> Dockerfile.arm64
+          echo "WORKDIR /work" >> Dockerfile.arm64
+          echo "ENV FLUTTER_ROOT=/flutter" >> Dockerfile.arm64
+          echo "ENV CXX=clang++" >> Dockerfile.arm64
+
+          # Build Docker image
+          docker build --platform linux/arm64 -t flutter-arm64-builder -f Dockerfile.arm64 .
+
+          # Run build in container
+          docker run --platform linux/arm64 --rm -v $(pwd):/work flutter-arm64-builder /bin/bash -c '
+            mkdir -p lib/config
+            if [ ! -f lib/config/env.local.dart ]; then
+              echo "Error: env.local.dart not found!"
+              exit 1
             fi
-          else
-            # For AMD64 build
-            # Ensure all required dependencies are installed
-            sudo apt-get update
-            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
-              clang cmake ninja-build pkg-config libgtk-3-dev \
-              liblzma-dev libstdc++-12-dev \
-              libsecret-1-dev libjsoncpp-dev \
-              libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
-              libunwind-dev libglu1-mesa fontconfig libpulse0 libasound2
-
-            # Set environment variables
-            export CXX=clang++
-            
-            # Configure Flutter
-            flutter config --enable-linux-desktop
-            flutter config --no-analytics
-            
-            # Get dependencies and build
             flutter pub get
-            flutter build linux \
-              --release \
-              --no-tree-shake-icons \
-              -v
+            flutter build linux --release --no-tree-shake-icons --target-platform=linux-arm64 -v
+            if [ ! -d build/linux/arm64/release/bundle ]; then
+              echo "Error: Build output not found!"
+              exit 1
+            fi
+          '
+
+          # Organize build output
+          if [ -d build/linux/arm64/release/bundle ]; then
+            mkdir -p build/linux/arm64/release/
+            rm -rf build/linux/x64
           fi
           
       - name: Create Debian Package
