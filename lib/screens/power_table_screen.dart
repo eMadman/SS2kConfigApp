@@ -11,7 +11,7 @@ import 'package:ss2kconfigapp/utils/constants.dart';
 import 'package:ss2kconfigapp/utils/extra.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
-import 'package:fl_chart/fl_chart.dart';
+import '../utils/power_table_painter.dart';
 import '../utils/bledata.dart';
 import '../widgets/metric_card.dart';
 import '../widgets/ss2k_app_bar.dart';
@@ -36,12 +36,6 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
   final List<Map<String, double>> _positionHistory = [];
   static const int maxTrailLength = 10;
   DateTime _lastPositionUpdate = DateTime.now();
-
-  // Chart padding percentages
-  static const double leftPaddingPercent = 0.005; // 12% for Y axis
-  static const double rightPaddingPercent = 0.05; // 5% for right padding
-  static const double topPaddingPercent = 0.65; // 5% for top padding
-  static const double bottomPaddingPercent = -2.9; // 12% for X axis
 
   @override
   void initState() {
@@ -209,102 +203,25 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
   }
 
   Widget _buildChart(BuildContext context, BoxConstraints constraints) {
-    final chart = LineChart(
-      LineChartData(
-        lineBarsData: _createLineBarsData(),
-        titlesData: FlTitlesData(
-            bottomTitles: AxisTitles(
-              axisNameWidget: Text('Watts (max 1000w)'),
-            ),
-            rightTitles: AxisTitles(),
-            leftTitles: AxisTitles(axisNameWidget: Text('Motor Tension'))),
-        borderData: FlBorderData(show: true),
-        gridData: FlGridData(show: true),
-        maxX: 1000,
-        minX: 0,
-        maxY: maxResistance,
-        minY: 0,
-      ),
-    );
-
     if (bleData.ftmsData.watts > 0 && bleData.ftmsData.watts <= 1000 && maxResistance > 0) {
-      final dotX = _calculateDotXPosition(constraints.maxWidth);
-      final dotY = _calculateDotYPosition(constraints.maxHeight);
-      _updatePositionHistory(dotX, dotY);
+      _updatePositionHistory(bleData.ftmsData.watts.toDouble(), bleData.ftmsData.resistance.toDouble());
     }
 
-    return Stack(
-      children: [
-        chart,
-        // Trail
-        if (_positionHistory.isNotEmpty)
-          ..._positionHistory.asMap().entries.map((entry) {
-            final index = entry.key;
-            final position = entry.value;
-            final opacity = (index + 1) / _positionHistory.length;
-            return Positioned(
-              left: position['x']! - 6,
-              bottom: position['y']! - 6,
-              child: Container(
-                width: 12,
-                height: 12,
-                decoration: BoxDecoration(
-                  color: getInterpolatedCadenceColor(bleData.ftmsData.cadence).withOpacity(opacity * 0.3),
-                  shape: BoxShape.circle,
-                ),
-              ),
-            );
-          }).toList(),
-        // Current dot
-        if (bleData.ftmsData.watts > 0 && bleData.ftmsData.watts <= 1000 && maxResistance > 0)
-          Positioned(
-            left: _calculateDotXPosition(constraints.maxWidth) - 6,
-            bottom: _calculateDotYPosition(constraints.maxHeight) - 6,
-            child: AnimatedBuilder(
-              animation: _pulseController,
-              builder: (context, child) {
-                return Container(
-                  width: 12 + (_pulseController.value * 4),
-                  height: 12 + (_pulseController.value * 4),
-                  decoration: BoxDecoration(
-                    color: getInterpolatedCadenceColor(bleData.ftmsData.cadence),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: getInterpolatedCadenceColor(bleData.ftmsData.cadence).withOpacity(0.5),
-                        blurRadius: 10 * _pulseController.value,
-                        spreadRadius: 2 * _pulseController.value,
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-      ],
+    return CustomPaint(
+      size: Size(constraints.maxWidth, constraints.maxHeight),
+      painter: PowerTablePainter(
+        powerTableData: bleData.powerTableData.map((row) =>
+          row.map((value) => value?.toDouble()).toList()
+        ).toList(),
+        cadences: cadences,
+        colors: colors,
+        maxResistance: maxResistance,
+        currentWatts: bleData.ftmsData.watts.toDouble(),
+        currentResistance: bleData.ftmsData.resistance.toDouble(),
+        currentCadence: bleData.ftmsData.cadence,
+        positionHistory: _positionHistory,
+      ),
     );
-  }
-
-  double _calculateDotXPosition(double chartWidth) {
-    // Calculate padding based on percentages
-    final double leftPadding = chartWidth * leftPaddingPercent;
-    final double rightPadding = chartWidth * rightPaddingPercent;
-    final double availableWidth = chartWidth - leftPadding - rightPadding;
-
-    // Calculate position based on current watts (0-1000 range)
-    final double xPosition = (bleData.ftmsData.watts * availableWidth) / 1000;
-    return leftPadding + xPosition;
-  }
-
-  double _calculateDotYPosition(double chartHeight) {
-    // Calculate padding based on percentages
-    final double topPadding = chartHeight * topPaddingPercent;
-    final double bottomPadding = chartHeight * bottomPaddingPercent;
-    final double availableHeight = chartHeight - topPadding - bottomPadding;
-
-    // Calculate position based on current resistance (0-maxResistance range)
-    final double yPosition = (bleData.ftmsData.resistance * availableHeight) / maxResistance;
-    return yPosition;
   }
 
   @override
@@ -370,26 +287,6 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
         ),
       ),
     );
-  }
-
-  List<LineChartBarData> _createLineBarsData() {
-    return List.generate(bleData.powerTableData.length, (index) {
-      final List<FlSpot> spots = [];
-      for (int i = 0; i < bleData.powerTableData[index].length && i * 30 <= 1000; i++) {
-        final resistance = bleData.powerTableData[index][i];
-        if (resistance != null) {
-          spots.add(FlSpot(watts[i].toDouble(), resistance.toDouble()));
-        }
-      }
-      return LineChartBarData(
-        spots: spots,
-        isCurved: true,
-        color: colors[index % colors.length],
-        barWidth: 3,
-        dotData: FlDotData(show: true),
-        belowBarData: BarAreaData(show: false),
-      );
-    });
   }
 
   Widget _buildLegend() {

@@ -235,7 +235,7 @@ jobs:
             liblzma-dev libstdc++-12-dev \
             libsecret-1-dev libjsoncpp-dev \
             libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
-            libunwind-dev libglu1-mesa fontconfig libpulse0 libasound2
+            libunwind-dev libglu1-mesa fontconfig libpulse0 libasound2t64
 
           # Set environment variables
           export CXX=clang++
