@@ -528,6 +528,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
                     totalDuration: _workoutController.totalDuration,
                     speedMph: _workoutController.speedMph,
                     totalDistance: _workoutController.totalDistance,
+                    workoutProgressSeconds: _workoutController.workoutProgressSeconds,
                   ),
                 ],
               ),

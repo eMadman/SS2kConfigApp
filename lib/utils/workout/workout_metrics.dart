@@ -11,6 +11,7 @@ class WorkoutMetrics extends StatelessWidget {
   final double totalDuration;
   final double? speedMph;
   final double? totalDistance;
+  final double workoutProgressSeconds;
 
   const WorkoutMetrics({
     Key? key,
@@ -19,6 +20,7 @@ class WorkoutMetrics extends StatelessWidget {
     required this.elapsedTime,
     required this.timeToNextSegment,
     required this.totalDuration,
+    required this.workoutProgressSeconds,
     this.speedMph,
     this.totalDistance,
   }) : super(key: key);
@@ -45,6 +47,7 @@ class WorkoutMetrics extends StatelessWidget {
       WorkoutMetric.remainingTime(
         totalSeconds: totalDuration.round(),
         elapsedSeconds: elapsedTime,
+        workoutProgressSeconds: workoutProgressSeconds,
       ),
     ];
 

@@ -124,7 +124,7 @@ class WorkoutTextStyle {
   /// Font size for scrolling workout text
   static const double scrollingText = 48.0;
   /// Speed of text scrolling in pixels per second
-  static const double scrollSpeed = 200.0;
+  static const double scrollSpeed = 150.0;
 }
 
 /// Grid constants for the workout graph

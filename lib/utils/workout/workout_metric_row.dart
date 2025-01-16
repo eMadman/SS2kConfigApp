@@ -264,8 +264,8 @@ class WorkoutMetric {
     );
   }
 
-  factory WorkoutMetric.remainingTime({required int totalSeconds, required int elapsedSeconds}) {
-    final remainingSeconds = totalSeconds - elapsedSeconds;
+  factory WorkoutMetric.remainingTime({required int totalSeconds, required int elapsedSeconds, required double workoutProgressSeconds}) {
+    final remainingSeconds = totalSeconds - workoutProgressSeconds.round();
     final hours = remainingSeconds ~/ 3600;
     final minutes = (remainingSeconds % 3600) ~/ 60;
     final seconds = remainingSeconds % 60;
