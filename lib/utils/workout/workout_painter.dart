@@ -82,6 +82,11 @@ class WorkoutPainter extends CustomPainter {
         borderPaint,
       );
 
+      // Draw power labels during active workout (when currentPower is provided)
+      if (currentPower != null) {
+        _drawPowerLabels(canvas, currentX, segmentWidth, size.height, segment, heightScale);
+      }
+
       // Draw cadence indicator if present
       if (segment.cadence != null || segment.cadenceLow != null) {
         _drawCadenceIndicator(canvas, currentX, segmentWidth, size.height, segment);
@@ -288,6 +293,59 @@ class WorkoutPainter extends CustomPainter {
       return Colors.red.withOpacity(WorkoutOpacity.segmentColor);
     } else {
       return Colors.purple.withOpacity(WorkoutOpacity.segmentColor);
+    }
+  }
+
+  void _drawPowerLabels(Canvas canvas, double x, double width, double height, WorkoutSegment segment, double heightScale) {
+    final textPainter = TextPainter(
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+    );
+
+    final color = _getSegmentColor(segment).withOpacity(1.0); // Full opacity for text
+    final style = TextStyle(
+      color: color,
+      fontSize: WorkoutFontSizes.small,
+      fontWeight: FontWeight.bold,
+    );
+
+    if (segment.isRamp) {
+      // For ramp segments, show both start and end power
+      final startPower = segment.type == SegmentType.cooldown ? segment.powerHigh : segment.powerLow;
+      final endPower = segment.type == SegmentType.cooldown ? segment.powerLow : segment.powerHigh;
+      
+      // Start power label
+      textPainter.text = TextSpan(
+        text: '${(startPower * ftpValue).round()}w',
+        style: style,
+      );
+      textPainter.layout();
+      textPainter.paint(
+        canvas,
+        Offset(x + 4, 4), // Small padding from segment edge
+      );
+
+      // End power label
+      textPainter.text = TextSpan(
+        text: '${(endPower * ftpValue).round()}w',
+        style: style,
+      );
+      textPainter.layout();
+      textPainter.paint(
+        canvas,
+        Offset(x + width - textPainter.width - 4, 4), // Small padding from segment edge
+      );
+    } else {
+      // For steady state segments, show single power value
+      textPainter.text = TextSpan(
+        text: '${(segment.powerLow * ftpValue).round()}w',
+        style: style,
+      );
+      textPainter.layout();
+      textPainter.paint(
+        canvas,
+        Offset(x + (width - textPainter.width) / 2, 4), // Centered horizontally with small top padding
+      );
     }
   }
 
