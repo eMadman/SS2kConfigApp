@@ -46,6 +46,7 @@ class WorkoutController extends ChangeNotifier {
   Timer? progressTimer;
   Map<int, double> actualPowerPoints = {}; // Map time index to power value
   int elapsedSeconds = 0;
+  double _previouslyElapsedTime = 0; // Store elapsed time from previous segments
   int currentSegmentTimeRemaining = 0;
   final BLEData bleData;
   final BluetoothDevice device;
@@ -185,8 +186,15 @@ class WorkoutController extends ChangeNotifier {
       }
     }
 
-    isPlaying = !isPlaying;
     if (isPlaying) {
+      // Save current elapsed time before pausing
+      if (_workoutStartTime != null) {
+        _previouslyElapsedTime += DateTime.now().difference(_workoutStartTime!).inMilliseconds / 1000.0;
+      }
+      progressTimer?.cancel();
+      // Reset simulation parameters when stopping
+      _resetSimulationParameters();
+    } else {
       // Only reset these values if we're at the start of the workout
       if (progressPosition == 0) {
         _totalDistance = 0;
@@ -195,16 +203,14 @@ class WorkoutController extends ChangeNotifier {
         actualPowerPoints = {};
         elapsedSeconds = 0;
         trackPoints.clear();
-        _workoutStartTime = DateTime.now();
+        _previouslyElapsedTime = 0;
       }
+      _workoutStartTime = DateTime.now();
       // Update target power immediately when resuming
       _updateTargetPower();
       startProgress();
-    } else {
-      progressTimer?.cancel();
-      // Reset simulation parameters when stopping
-      _resetSimulationParameters();
     }
+    isPlaying = !isPlaying;
     _saveWorkoutState();
     if (!_isDisposed) {
       notifyListeners();
@@ -224,14 +230,15 @@ class WorkoutController extends ChangeNotifier {
   void skipToNextSegment() {
     if (segments.isEmpty || !isPlaying) return;
 
-    double currentTime = progressPosition * totalDuration;
-    double elapsedTime = 0;
+    double currentTime = (_previouslyElapsedTime + DateTime.now().difference(_workoutStartTime!).inMilliseconds / 1000.0);
+    double segmentStartTime = 0;
 
     for (int i = 0; i < segments.length; i++) {
-      if (currentTime >= elapsedTime && currentTime < elapsedTime + segments[i].duration) {
+      if (currentTime >= segmentStartTime && currentTime < segmentStartTime + segments[i].duration) {
         // If this is the last segment, stop the workout
         if (i == segments.length - 1) {
           progressPosition = 1.0;
+          _previouslyElapsedTime = totalDuration;
           isPlaying = false;
           progressTimer?.cancel();
           // Play workout end sound and reset simulation parameters
@@ -245,14 +252,16 @@ class WorkoutController extends ChangeNotifier {
         }
 
         // Skip to the start of the next segment
-        progressPosition = (elapsedTime + segments[i].duration) / totalDuration;
+        _previouslyElapsedTime = segmentStartTime + segments[i].duration;
+        _workoutStartTime = DateTime.now();
+        progressPosition = _previouslyElapsedTime / totalDuration;
         _saveWorkoutState();
         if (!_isDisposed) {
           notifyListeners();
         }
         return;
       }
-      elapsedTime += segments[i].duration;
+      segmentStartTime += segments[i].duration;
     }
   }
 
@@ -288,6 +297,7 @@ class WorkoutController extends ChangeNotifier {
         _totalDistance = 0;
         _lastAltitude = 100.0;
         _totalAscent = 0;
+        _previouslyElapsedTime = 0;
         isPlaying = false; // Ensure workout starts in stopped state for fresh loads
       }
 
@@ -356,8 +366,11 @@ class WorkoutController extends ChangeNotifier {
         return;
       }
 
-      progressPosition += 0.1 / totalDuration;
-      elapsedSeconds = (progressPosition * totalDuration).round();
+      final now = DateTime.now();
+      final currentSegmentTime = now.difference(_workoutStartTime!).inMilliseconds / 1000.0;
+      final totalElapsedTime = _previouslyElapsedTime + currentSegmentTime;
+      progressPosition = totalElapsedTime / totalDuration;
+      elapsedSeconds = totalElapsedTime.round();
 
       // Store power value at current time index
       final currentPower = bleData.ftmsData.watts.toDouble();
@@ -377,7 +390,6 @@ class WorkoutController extends ChangeNotifier {
       _lastAltitude = newAltitude;
 
       // Store track point every second
-      final now = DateTime.now();
       if (_lastTrackPointTime == null || now.difference(_lastTrackPointTime!) >= const Duration(seconds: 1)) {
         trackPoints.add(TrackPoint(
           timestamp: now,
