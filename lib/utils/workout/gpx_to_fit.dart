@@ -44,7 +44,7 @@ class GpxToFitConverter {
           ..altitude = trackPoint.ele;
 
         // Extract heart rate, cadence, and power from extensions
-        final ext = trackPoint.extensions!;
+        final ext = trackPoint.extensions;
         
         // Extract power
         final powerStr = ext['power']?.toString() ?? '0';

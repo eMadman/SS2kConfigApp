@@ -8,6 +8,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import '../utils/bledata.dart';
+import '../utils/extra.dart';
 
 class ScanResultTile extends StatefulWidget {
   const ScanResultTile({Key? key, required this.result, this.onTap}) : super(key: key);
@@ -99,8 +101,11 @@ class _ScanResultTileState extends State<ScanResultTile> {
             const SizedBox(width: 8),
             ElevatedButton(
               child: const Text('DISCONNECT'),
-              onPressed: () {
-                this.widget.result.device.disconnect();
+              onPressed: () async {
+                // Set user-initiated disconnect flag
+                BLEDataManager.forDevice(this.widget.result.device)
+                    .isUserDisconnect = true;
+                await this.widget.result.device.disconnectAndUpdateStream();
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: ThemeData().colorScheme.error,
@@ -113,7 +118,11 @@ class _ScanResultTileState extends State<ScanResultTile> {
     } else {
       return ElevatedButton(
         child: const Text('CONNECT'),
-        onPressed: (this.widget.result.advertisementData.connectable) ? this.widget.onTap : null,
+        onPressed: (this.widget.result.advertisementData.connectable) ? () {
+          // Reset user disconnect flag when connecting
+          BLEDataManager.forDevice(this.widget.result.device).isUserDisconnect = false;
+          this.widget.onTap?.call();
+        } : null,
         style: ElevatedButton.styleFrom(
           backgroundColor: ThemeData().colorScheme.secondary,
           foregroundColor: ThemeData().colorScheme.onSecondary,

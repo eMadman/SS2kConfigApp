@@ -43,6 +43,10 @@ class _ShifterScreenState extends State<ShifterScreen> {
       return;
     }
     Timer.periodic(const Duration(seconds: 15), (refreshTimer) {
+      if(bleData.isUserDisconnect) {
+        refreshTimer.cancel();
+        return;
+      }
       if (!this.widget.device.isConnected) {
         try {
           this.widget.device.connectAndUpdateStream();
@@ -53,6 +57,7 @@ class _ShifterScreenState extends State<ShifterScreen> {
         if (mounted) {
         } else {
           refreshTimer.cancel();
+        return;
         }
       }
     });

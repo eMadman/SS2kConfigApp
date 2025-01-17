@@ -123,6 +123,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
     });
 
     Timer.periodic(const Duration(seconds: 15), (refreshTimer) {
+      if (bleData.isUserDisconnect) {
+        refreshTimer.cancel();
+        return;
+      }
       if (!widget.device.isConnected) {
         try {
           widget.device.connect();
@@ -132,6 +136,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
       } else {
         if (!mounted) {
           refreshTimer.cancel();
+        return;
         }
       }
     });

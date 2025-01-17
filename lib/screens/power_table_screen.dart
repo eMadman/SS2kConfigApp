@@ -39,6 +39,7 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
   static const int maxTrailLength = 10;
   DateTime _lastPositionUpdate = DateTime.now();
   Timer? _homingValuesTimer;
+  Timer? _targetTimer;
 
   @override
   void initState() {
@@ -48,7 +49,7 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
     requestHomingValues();
 
     // Set up timer to periodically check homing values
-    _homingValuesTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+    _homingValuesTimer = Timer.periodic(const Duration(seconds: 5), (_homingValuesTimer) {
       if (mounted && this.widget.device.isConnected) {
         requestHomingValues();
       }
@@ -62,6 +63,10 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
 
     // refresh the screen completely every VV seconds.
     Timer.periodic(const Duration(seconds: 15), (refreshTimer) {
+      if (bleData.isUserDisconnect) {
+        refreshTimer.cancel();
+        return;
+      }
       if (!this.widget.device.isConnected) {
         try {
           this.widget.device.connectAndUpdateStream();
@@ -73,12 +78,16 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
           requestAllCadenceLines();
         } else {
           refreshTimer.cancel();
+        return;
         }
       }
     });
 
     // Request target position every second
-    Timer.periodic(const Duration(seconds: 1), (timer) {
+    Timer _targetTimer = Timer.periodic(const Duration(seconds: 1), (_targetTimer) {
+      if(this.bleData.isUserDisconnect) {
+        _targetTimer.cancel();
+      }
       if (mounted && this.widget.device.isConnected) {
         bleData.requestSetting(this.widget.device, targetPositionVname);
       }
@@ -107,6 +116,7 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
     this.bleData.isReadingOrWriting.removeListener(_rwListner);
     _pulseController.dispose();
     _homingValuesTimer?.cancel();
+    _targetTimer?.cancel();
     super.dispose();
   }
 
@@ -120,13 +130,13 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
         if (c["vName"] == BLE_hMinVname && c["value"] != noFirmSupport) {
           double? value = double.tryParse(c["value"]);
           setState(() {
-            homingMin = (value == INT32_MIN) ? null : value!/100;
+            homingMin = (value == INT32_MIN) ? null : value! / 100;
           });
         }
         if (c["vName"] == BLE_hMaxVname && c["value"] != noFirmSupport) {
           double? value = double.tryParse(c["value"]);
           setState(() {
-            homingMax = (value == INT32_MIN) ? null : value!/100;
+            homingMax = (value == INT32_MIN) ? null : value! / 100;
           });
         }
       }
@@ -246,9 +256,7 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
     return CustomPaint(
       size: Size(constraints.maxWidth, constraints.maxHeight),
       painter: PowerTablePainter(
-        powerTableData: bleData.powerTableData.map((row) =>
-          row.map((value) => value?.toDouble()).toList()
-        ).toList(),
+        powerTableData: bleData.powerTableData.map((row) => row.map((value) => value?.toDouble()).toList()).toList(),
         cadences: cadences,
         colors: colors,
         maxResistance: maxResistance,

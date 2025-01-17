@@ -37,7 +37,8 @@ class _DeviceHeaderState extends State<DeviceHeader> {
     super.initState();
     bleData = BLEDataManager.forDevice(this.widget.device);
 
-    _connectionStateSubscription = this.widget.device.connectionState.listen((state) async {
+    // Only create subscription if it doesn't exist
+    _connectionStateSubscription ??= this.widget.device.connectionState.listen((state) async {
       if (state == BluetoothConnectionState.connected) {
         // When device connects/reconnects, update RSSI and refresh services
         this.bleData.rssi.value = await this.widget.device.readRssi();
@@ -57,7 +58,10 @@ class _DeviceHeaderState extends State<DeviceHeader> {
         setState(() {});
       }
     });
-    _startRssiTimer();
+    // Only start timer if it's not already running
+    if (!rssiTimer.isActive) {
+      _startRssiTimer();
+    }
   }
 
   Future<void> _refreshDeviceInfo() async {
@@ -88,7 +92,10 @@ class _DeviceHeaderState extends State<DeviceHeader> {
   @override
   void dispose() {
     _connectionStateSubscription?.cancel();
-    rssiTimer.cancel();
+    _connectionStateSubscription = null;
+    if (rssiTimer.isActive) {
+      rssiTimer.cancel();
+    }
     super.dispose();
   }
 
@@ -125,6 +132,9 @@ class _DeviceHeaderState extends State<DeviceHeader> {
   }
 
   Future onConnectPressed() async {
+    // Reset user disconnect flag when connecting
+    this.bleData.isUserDisconnect = false;
+    
     try {
       await this.widget.device.connectAndUpdateStream();
       Snackbar.show(ABC.c, "Connect: Success", success: true);

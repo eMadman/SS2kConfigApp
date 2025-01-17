@@ -78,6 +78,7 @@ class FtmsData {
 }
 
 class BLEData {
+  bool isUserDisconnect = false;
   ValueNotifier<int> rssi = ValueNotifier(0);
   ValueNotifier<bool> charReceived = ValueNotifier(false);
   ValueNotifier<bool> isReadingOrWriting = ValueNotifier(false);
