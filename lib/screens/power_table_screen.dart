@@ -120,13 +120,13 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
         if (c["vName"] == BLE_hMinVname && c["value"] != noFirmSupport) {
           double? value = double.tryParse(c["value"]);
           setState(() {
-            homingMin = (value == INT32_MIN) ? null : value;
+            homingMin = (value == INT32_MIN) ? null : value!/100;
           });
         }
         if (c["vName"] == BLE_hMaxVname && c["value"] != noFirmSupport) {
           double? value = double.tryParse(c["value"]);
           setState(() {
-            homingMax = (value == INT32_MIN) ? null : value;
+            homingMax = (value == INT32_MIN) ? null : value!/100;
           });
         }
       }
@@ -239,7 +239,8 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
 
   Widget _buildChart(BuildContext context, BoxConstraints constraints) {
     if (bleData.ftmsData.watts > 0 && bleData.ftmsData.watts <= 1000 && maxResistance > 0) {
-      _updatePositionHistory(bleData.ftmsData.watts.toDouble(), bleData.ftmsData.resistance.toDouble());
+      double targetPosition = double.tryParse(bleData.getVnameValue(targetPositionVname)) ?? 0;
+      _updatePositionHistory(bleData.ftmsData.watts.toDouble(), targetPosition);
     }
 
     return CustomPaint(
@@ -254,7 +255,7 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
         homingMin: homingMin,
         homingMax: homingMax,
         currentWatts: bleData.ftmsData.watts.toDouble(),
-        currentResistance: bleData.ftmsData.resistance.toDouble(),
+        currentResistance: double.tryParse(bleData.getVnameValue(targetPositionVname)) ?? 0,
         currentCadence: bleData.ftmsData.cadence,
         positionHistory: _positionHistory,
       ),

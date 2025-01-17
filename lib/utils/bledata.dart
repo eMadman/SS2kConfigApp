@@ -111,7 +111,15 @@ class BLEData {
 
   var customCharacteristic = customCharacteristicFramework;
 
-setupConnection(BluetoothDevice device) async {
+  String getVnameValue(String vName) {
+    var characteristic = customCharacteristic.firstWhere(
+      (c) => c["vName"] == vName && c["value"] != noFirmSupport,
+      orElse: () => {"value": "0"},
+    );
+    return characteristic["value"].toString();
+  }
+
+  setupConnection(BluetoothDevice device) async {
   if (device.isConnected) {
     await _discoverServices(device);
     this.subscribed = false;

@@ -204,7 +204,7 @@ class PowerTablePainter extends CustomPainter {
       homingMax ?? max(maxResistance, MIN_RESISTANCE_RANGE)
     );
     double range = maxRes - minRes;
-    final y = size.height - ((currentResistance - minRes) * size.height / range);
+    final y = size.height - ((currentResistance/100 - minRes) * size.height / range);
 
     final paint = Paint()
       ..color = _getCadenceColor(currentCadence)
