@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'workout_parser.dart';
 import 'workout_constants.dart';
@@ -314,16 +315,25 @@ class WorkoutPainter extends CustomPainter {
       final startPower = segment.type == SegmentType.cooldown ? segment.powerHigh : segment.powerLow;
       final endPower = segment.type == SegmentType.cooldown ? segment.powerLow : segment.powerHigh;
       
+      // Calculate positions above the power levels
+      final startY = height - ((startPower * ftpValue + 20) * heightScale);
+      final endY = height - ((endPower * ftpValue + 12) * heightScale);
+      
+      // Calculate slope angle
+      final slopeAngle = atan2(endY - startY, width);
+      
       // Start power label
       textPainter.text = TextSpan(
         text: '${(startPower * ftpValue).round()}w',
         style: style,
       );
       textPainter.layout();
-      textPainter.paint(
-        canvas,
-        Offset(x + 4, 4), // Small padding from segment edge
-      );
+      
+      canvas.save();
+      canvas.translate(x + 4, startY);
+      canvas.rotate(slopeAngle);
+      textPainter.paint(canvas, Offset.zero);
+      canvas.restore();
 
       // End power label
       textPainter.text = TextSpan(
@@ -331,12 +341,16 @@ class WorkoutPainter extends CustomPainter {
         style: style,
       );
       textPainter.layout();
-      textPainter.paint(
-        canvas,
-        Offset(x + width - textPainter.width - 4, 4), // Small padding from segment edge
-      );
+      
+      canvas.save();
+      canvas.translate(x + width - textPainter.width - 4, endY);
+      canvas.rotate(slopeAngle);
+      textPainter.paint(canvas, Offset.zero);
+      canvas.restore();
     } else {
-      // For steady state segments, show single power value
+      // For steady state segments, show single power value 20 watts above
+      final yPos = height - ((segment.powerLow * ftpValue + 20) * heightScale);
+      
       textPainter.text = TextSpan(
         text: '${(segment.powerLow * ftpValue).round()}w',
         style: style,
@@ -344,7 +358,7 @@ class WorkoutPainter extends CustomPainter {
       textPainter.layout();
       textPainter.paint(
         canvas,
-        Offset(x + (width - textPainter.width) / 2, 4), // Centered horizontally with small top padding
+        Offset(x + (width - textPainter.width) / 2, yPos),
       );
     }
   }
