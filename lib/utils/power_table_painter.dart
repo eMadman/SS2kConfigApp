@@ -1,11 +1,15 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'workout/workout_constants.dart';
+import 'constants.dart';
 
 class PowerTablePainter extends CustomPainter {
   final List<List<double?>> powerTableData;
   final List<int> cadences;
   final List<Color> colors;
   final double maxResistance;
+  final double? homingMin;
+  final double? homingMax;
   final double currentWatts;
   final double currentResistance;
   final int currentCadence;
@@ -16,6 +20,8 @@ class PowerTablePainter extends CustomPainter {
     required this.cadences,
     required this.colors,
     required this.maxResistance,
+    this.homingMin,
+    this.homingMax,
     required this.currentWatts,
     required this.currentResistance,
     required this.currentCadence,
@@ -23,6 +29,8 @@ class PowerTablePainter extends CustomPainter {
   });
 
   @override
+
+  final leftPadding = 20.0;
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
       ..style = PaintingStyle.stroke
@@ -57,12 +65,17 @@ class PowerTablePainter extends CustomPainter {
       textAlign: TextAlign.right,
     );
 
-    // Left padding for labels
-    const double leftPadding = 35.0;
+    // Determine min and max resistance values
+    double minRes = 0;  // Always start at 0
+    double maxRes = max(
+      MIN_RESISTANCE_RANGE,
+      homingMax ?? max(maxResistance, MIN_RESISTANCE_RANGE)
+    );
+    double range = maxRes - minRes;
 
     // Draw horizontal resistance lines
-    for (double resistance = 0; resistance <= maxResistance; resistance += maxResistance / 5) {
-      final y = size.height - (resistance * size.height / maxResistance);
+    for (double resistance = minRes; resistance <= maxRes; resistance += range / 5) {
+      final y = size.height - ((resistance - minRes) * size.height / range);
       
       // Draw grid line
       canvas.drawLine(
@@ -87,8 +100,8 @@ class PowerTablePainter extends CustomPainter {
     }
 
     // Draw vertical watts lines
-    for (double watts = 0; watts <= 1000; watts += 100) {
-      final x = leftPadding + (watts * (size.width - leftPadding) / 1000);
+    for (double watts = 0; watts <= MIN_POWER_RANGE; watts += 100) {
+      final x = leftPadding + (watts * (size.width - leftPadding) / MIN_POWER_RANGE);
       
       // Draw grid line
       canvas.drawLine(
@@ -97,32 +110,41 @@ class PowerTablePainter extends CustomPainter {
         gridPaint,
       );
 
-      // Draw watts label
-      textPainter.text = TextSpan(
-        text: '${watts.toInt()}w',
-        style: TextStyle(
-          color: Colors.grey[600],
-          fontSize: WorkoutFontSizes.small,
-        ),
-      );
-      textPainter.layout();
-      textPainter.paint(
-        canvas,
-        Offset(x - textPainter.width / 2, -5),
-      );
+      // Draw watts label (skip 0W to avoid overlap with resistance label)
+      if (watts > 0) {
+        textPainter.text = TextSpan(
+          text: '${watts.toInt()}w',
+          style: TextStyle(
+            color: Colors.grey[600],
+            fontSize: WorkoutFontSizes.small,
+          ),
+        );
+        textPainter.layout();
+        textPainter.paint(
+          canvas,
+          Offset(x - textPainter.width / 2, -5),
+        );
+      }
     }
   }
 
   void _drawPowerCurve(Canvas canvas, Size size, List<double?> data, Paint paint) {
-    const double leftPadding = 35.0;
+    
     final path = Path();
     bool isFirstPoint = true;
     Offset? lastValidPoint;
 
-    for (int i = 0; i < data.length && i * 30 <= 1000; i++) {
+    double minRes = 0;  // Always start at 0
+    double maxRes = max(
+      MIN_RESISTANCE_RANGE,
+      homingMax ?? max(maxResistance, MIN_RESISTANCE_RANGE)
+    );
+    double range = maxRes - minRes;
+
+    for (int i = 0; i < data.length && i * 30 <= MIN_POWER_RANGE; i++) {
       if (data[i] != null) {
-        final x = leftPadding + (i * 30 * (size.width - leftPadding) / 1000);
-        final y = size.height - (data[i]! * size.height / maxResistance);
+        final x = leftPadding + (i * 30 * (size.width - leftPadding) / MIN_POWER_RANGE);
+        final y = size.height - ((data[i]! - minRes) * size.height / range);
 
         // Check if point is within graph boundaries
         if (x >= leftPadding && x <= size.width && y >= 0 && y <= size.height) {
@@ -146,7 +168,7 @@ class PowerTablePainter extends CustomPainter {
   }
 
   void _drawPositionHistory(Canvas canvas, Size size) {
-    const double leftPadding = 35.0;
+    
     
     for (int i = 0; i < positionHistory.length; i++) {
       final position = positionHistory[i];
@@ -156,8 +178,14 @@ class PowerTablePainter extends CustomPainter {
         ..color = _getCadenceColor(currentCadence).withOpacity(opacity * 0.3)
         ..style = PaintingStyle.fill;
 
-      final x = leftPadding + (position['x']! * (size.width - leftPadding) / 1000);
-      final y = size.height - (position['y']! * size.height / maxResistance);
+      final x = leftPadding + (position['x']! * (size.width - leftPadding) / MIN_POWER_RANGE);
+      double minRes = 0;  // Always start at 0
+      double maxRes = max(
+        MIN_RESISTANCE_RANGE,
+        homingMax ?? max(maxResistance, MIN_RESISTANCE_RANGE)
+      );
+      double range = maxRes - minRes;
+      final y = size.height - ((position['y']! - minRes) * size.height / range);
 
       canvas.drawCircle(
         Offset(x, y),
@@ -168,9 +196,15 @@ class PowerTablePainter extends CustomPainter {
   }
 
   void _drawCurrentPosition(Canvas canvas, Size size) {
-    const double leftPadding = 35.0;
-    final x = leftPadding + (currentWatts * (size.width - leftPadding) / 1000);
-    final y = size.height - (currentResistance * size.height / maxResistance);
+    
+    final x = leftPadding + (currentWatts * (size.width - leftPadding) / MIN_POWER_RANGE);
+    double minRes = 0;  // Always start at 0
+    double maxRes = max(
+      MIN_RESISTANCE_RANGE,
+      homingMax ?? max(maxResistance, MIN_RESISTANCE_RANGE)
+    );
+    double range = maxRes - minRes;
+    final y = size.height - ((currentResistance - minRes) * size.height / range);
 
     final paint = Paint()
       ..color = _getCadenceColor(currentCadence)

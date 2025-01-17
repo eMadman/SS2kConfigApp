@@ -30,18 +30,29 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
   String statusString = '';
   late AnimationController _pulseController;
   double maxResistance = 0;
+  double? homingMin;
+  double? homingMax;
   final GlobalKey _chartKey = GlobalKey();
 
   // Trail tracking
   final List<Map<String, double>> _positionHistory = [];
   static const int maxTrailLength = 10;
   DateTime _lastPositionUpdate = DateTime.now();
+  Timer? _homingValuesTimer;
 
   @override
   void initState() {
     super.initState();
     bleData = BLEDataManager.forDevice(this.widget.device);
     requestAllCadenceLines();
+    requestHomingValues();
+
+    // Set up timer to periodically check homing values
+    _homingValuesTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (mounted && this.widget.device.isConnected) {
+        requestHomingValues();
+      }
+    });
 
     // Initialize pulse animation
     _pulseController = AnimationController(
@@ -95,7 +106,31 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
     _connectionStateSubscription?.cancel();
     this.bleData.isReadingOrWriting.removeListener(_rwListner);
     _pulseController.dispose();
+    _homingValuesTimer?.cancel();
     super.dispose();
+  }
+
+  void requestHomingValues() async {
+    if (mounted && this.widget.device.isConnected) {
+      await bleData.requestSetting(this.widget.device, BLE_hMinVname);
+      await bleData.requestSetting(this.widget.device, BLE_hMaxVname);
+
+      // Parse values from BLE data
+      for (var c in bleData.customCharacteristic) {
+        if (c["vName"] == BLE_hMinVname && c["value"] != noFirmSupport) {
+          double? value = double.tryParse(c["value"]);
+          setState(() {
+            homingMin = (value == INT32_MIN) ? null : value;
+          });
+        }
+        if (c["vName"] == BLE_hMaxVname && c["value"] != noFirmSupport) {
+          double? value = double.tryParse(c["value"]);
+          setState(() {
+            homingMax = (value == INT32_MIN) ? null : value;
+          });
+        }
+      }
+    }
   }
 
   Color getCadenceColor(int cadence) {
@@ -216,6 +251,8 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
         cadences: cadences,
         colors: colors,
         maxResistance: maxResistance,
+        homingMin: homingMin,
+        homingMax: homingMax,
         currentWatts: bleData.ftmsData.watts.toDouble(),
         currentResistance: bleData.ftmsData.resistance.toDouble(),
         currentCadence: bleData.ftmsData.cadence,
