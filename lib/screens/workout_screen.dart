@@ -373,6 +373,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
                       setState(() {
                         WorkoutTextStyle.scrollingText = value;
                       });
+                      WorkoutTextEventOverlay.saveTextSettings(value, WorkoutTextStyle.scrollSpeed);
                     },
                   ),
                   const SizedBox(height: 16),
@@ -387,6 +388,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
                       setState(() {
                         WorkoutTextStyle.scrollSpeed = value;
                       });
+                      WorkoutTextEventOverlay.saveTextSettings(WorkoutTextStyle.scrollingText, value);
                     },
                   ),
                   const SizedBox(height: 16),

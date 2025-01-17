@@ -1,10 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'workout_parser.dart';
 import 'workout_tts_settings.dart';
 import 'workout_controller.dart';
 import 'workout_constants.dart';
 
+// Keys for SharedPreferences
+const String _textSizeKey = 'workout_text_size';
+const String _scrollSpeedKey = 'workout_scroll_speed';
+
 class WorkoutTextEventOverlay extends StatefulWidget {
+  static Future<void> saveTextSettings(double textSize, double scrollSpeed) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_textSizeKey, textSize);
+    await prefs.setDouble(_scrollSpeedKey, scrollSpeed);
+  }
+
+  static Future<Map<String, double>> loadTextSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    return {
+      'textSize': prefs.getDouble(_textSizeKey) ?? WorkoutTextStyle.scrollingText,
+      'scrollSpeed': prefs.getDouble(_scrollSpeedKey) ?? WorkoutTextStyle.scrollSpeed,
+    };
+  }
   final WorkoutSegment? currentSegment;
   final int secondsIntoSegment;
   final WorkoutTTSSettings ttsSettings;
@@ -33,6 +51,12 @@ class _WorkoutTextEventOverlayState extends State<WorkoutTextEventOverlay> with 
   @override
   void initState() {
     super.initState();
+    
+    // Load saved text settings
+    WorkoutTextEventOverlay.loadTextSettings().then((settings) {
+      WorkoutTextStyle.scrollingText = settings['textSize']!;
+      WorkoutTextStyle.scrollSpeed = settings['scrollSpeed']!;
+    });
     _scrollController = AnimationController(vsync: this)
       ..addStatusListener((status) {
         if (status == AnimationStatus.completed) {
