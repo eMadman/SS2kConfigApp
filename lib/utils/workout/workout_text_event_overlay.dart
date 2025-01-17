@@ -10,12 +10,15 @@ class WorkoutTextEventOverlay extends StatefulWidget {
   final WorkoutTTSSettings ttsSettings;
   final WorkoutController workoutController;
 
+  final String? testText;
+
   const WorkoutTextEventOverlay({
     Key? key,
     required this.currentSegment,
     required this.secondsIntoSegment,
     required this.ttsSettings,
     required this.workoutController,
+    this.testText,
   }) : super(key: key);
 
   @override

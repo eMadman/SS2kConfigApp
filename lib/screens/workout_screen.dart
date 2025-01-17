@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import '../utils/workout/workout_parser.dart';
 import '../utils/workout/workout_painter.dart';
 import '../utils/workout/workout_metrics.dart';
 import '../utils/workout/workout_constants.dart';
@@ -350,6 +351,103 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
     super.dispose();
   }
 
+  void _showWorkoutTextSettingsDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Workout Text Settings'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Font Size: ${WorkoutTextStyle.scrollingText.toInt()}'),
+                  Slider(
+                    value: WorkoutTextStyle.scrollingText,
+                    min: 24,
+                    max: 72,
+                    divisions: 12,
+                    label: WorkoutTextStyle.scrollingText.toInt().toString(),
+                    onChanged: (value) {
+                      setState(() {
+                        WorkoutTextStyle.scrollingText = value;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Text('Scroll Speed: ${WorkoutTextStyle.scrollSpeed.toInt()} px/s'),
+                  Slider(
+                    value: WorkoutTextStyle.scrollSpeed,
+                    min: 50,
+                    max: 300,
+                    divisions: 25,
+                    label: WorkoutTextStyle.scrollSpeed.toInt().toString(),
+                    onChanged: (value) {
+                      setState(() {
+                        WorkoutTextStyle.scrollSpeed = value;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) {
+                          final testSegment = WorkoutSegment(
+                            type: SegmentType.steadyState,
+                            duration: 60,
+                            powerLow: 100,
+                            powerHigh: 150,
+                            textEvents: [
+                              TextEvent(
+                                timeOffset: 0,
+                                message: 'Text Size ${WorkoutTextStyle.scrollingText.toInt()} '
+                                    ', Speed ${WorkoutTextStyle.scrollSpeed.toInt()}',
+                              ),
+                            ],
+                          );
+                          
+                          return AlertDialog(
+                            content: SizedBox(
+                              width: double.maxFinite,
+                              child: WorkoutTextEventOverlay(
+                                currentSegment: testSegment,
+                                secondsIntoSegment: 0,
+                                ttsSettings: _ttsSettings,
+                                workoutController: _workoutController,
+                                testText: 'Text Size ${WorkoutTextStyle.scrollingText.toInt()} '
+                                    'x Speed ${WorkoutTextStyle.scrollSpeed.toInt()}',
+                              ),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('CLOSE'),
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                    },
+                    child: const Text('TEST SETTINGS'),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('CLOSE'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _showWorkoutLibrary({required bool selectionMode}) {
     showDialog(
       context: context,
@@ -438,6 +536,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
                 case 'completed_activities':
                   CompletedActivities.showCompletedActivitiesDialog(context);
                   break;
+                case 'workout_text':
+                  _showWorkoutTextSettingsDialog();
+                  break;
               }
             },
             itemBuilder: (context) => [
@@ -508,6 +609,16 @@ class _WorkoutScreenState extends State<WorkoutScreen> with TickerProviderStateM
                     Icon(Icons.history),
                     SizedBox(width: 8),
                     Text('Completed Activities'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'workout_text',
+                child: Row(
+                  children: [
+                    Icon(Icons.text_fields),
+                    SizedBox(width: 8),
+                    Text('Workout Text'),
                   ],
                 ),
               ),

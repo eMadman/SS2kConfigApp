@@ -122,9 +122,9 @@ class WorkoutDurations {
 /// Text style constants for workout text overlay
 class WorkoutTextStyle {
   /// Font size for scrolling workout text
-  static const double scrollingText = 48.0;
+  static double scrollingText = 48.0;
   /// Speed of text scrolling in pixels per second
-  static const double scrollSpeed = 150.0;
+  static double scrollSpeed = 150.0;
 }
 
 /// Grid constants for the workout graph
