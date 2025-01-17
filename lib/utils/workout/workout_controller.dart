@@ -113,6 +113,7 @@ class WorkoutController extends ChangeNotifier {
       // Restore progress
       progressPosition = savedState['progressPosition'] as double;
       elapsedSeconds = savedState['elapsedSeconds'] as int;
+      _workoutProgressTime = savedState['_workoutProgressTime'] as double;
 
       // Resume if it was playing
       if (savedState['wasPlaying'] as bool) {
@@ -127,7 +128,7 @@ class WorkoutController extends ChangeNotifier {
     int totalTime = 0;
     for (var segment in segments) {
       totalTime += segment.duration;
-      if (totalTime > elapsedSeconds) {
+      if (totalTime > _workoutProgressTime.round()) {
         return segment;
       }
     }
@@ -138,8 +139,8 @@ class WorkoutController extends ChangeNotifier {
     if (segments.isEmpty) return 0;
     int totalTime = 0;
     for (var segment in segments) {
-      if (totalTime + segment.duration > elapsedSeconds) {
-        return elapsedSeconds - totalTime;
+      if (totalTime + segment.duration > _workoutProgressTime.round()) {
+        return _workoutProgressTime.round() - totalTime;
       }
       totalTime += segment.duration;
     }
@@ -258,14 +259,21 @@ class WorkoutController extends ChangeNotifier {
         // Keep track of actual elapsed time
         double currentSegmentElapsedTime = _workoutProgressTime - segmentStartTime;
         _previouslyElapsedTime += currentSegmentElapsedTime;
-        
+
         // Calculate the start time of the next segment
         double nextSegmentStart = segmentStartTime + segments[i].duration;
-        
+
+        // Update power history for skipped time
+        final currentTime = _workoutProgressTime.round();
+        final skippedTime = (nextSegmentStart - _workoutProgressTime).round();
+
+        actualPowerPoints[currentTime + 1] = 0;
+        actualPowerPoints[currentTime + skippedTime - 1] = 0;
+
         // Set workout progress to the start of next segment
         _workoutProgressTime = nextSegmentStart;
         progressPosition = _workoutProgressTime / totalDuration;
-        
+
         // Reset the start time for the new segment
         _workoutStartTime = DateTime.now();
         _saveWorkoutState();
@@ -331,7 +339,7 @@ class WorkoutController extends ChangeNotifier {
 
   void _updateTargetPower() {
     if (segments.isEmpty) return;
-    
+
     double currentTime = progressPosition * totalDuration;
     double elapsedTime = 0;
 
@@ -383,17 +391,17 @@ class WorkoutController extends ChangeNotifier {
       final now = DateTime.now();
       final currentSegmentTime = now.difference(_workoutStartTime!).inMilliseconds / 1000.0;
       final totalElapsedTime = _previouslyElapsedTime + currentSegmentTime;
-      
+
       // Update actual elapsed time
       elapsedSeconds = totalElapsedTime.round();
-      
+
       // Update workout progress time
       _workoutProgressTime += 0.1; // Increment by 100ms
       progressPosition = _workoutProgressTime / totalDuration;
 
       // Store power value at current time index
       final currentPower = bleData.ftmsData.watts.toDouble();
-      actualPowerPoints[elapsedSeconds] = currentPower;
+      actualPowerPoints[_workoutProgressTime.round()] = currentPower;
 
       // Calculate speed (m/s) from power
       double speedMps = speedMph * 0.44704; // Convert mph to m/s
@@ -451,7 +459,7 @@ class WorkoutController extends ChangeNotifier {
 
   void _handleSegmentCountdown(int timeRemaining) {
     if (!isPlaying) return; // Don't play sounds if workout isn't active
-    
+
     if (timeRemaining <= 3 && timeRemaining > 0 && !_isCountingDown) {
       _isCountingDown = true;
       workoutSoundGenerator.intervalCountdownSound();
@@ -465,6 +473,7 @@ class WorkoutController extends ChangeNotifier {
       workoutContent: _currentWorkoutContent,
       progressPosition: progressPosition,
       elapsedSeconds: elapsedSeconds,
+      workoutProgressTime: _workoutProgressTime,
       isPlaying: isPlaying,
     );
   }
