@@ -216,26 +216,30 @@ class _ScanScreenState extends State<ScanScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Having Trouble?',
-                            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                          ),
-                          SizedBox(height: 10),
                           InkWell(
                             onTap: () async {
-                              Uri url = Uri(scheme: 'https',host:'SmartSpin2k.com', path: '/', fragment: '');//http://SmartSpin2k.com";
+                              Uri url = Uri(
+                                  scheme: 'https',
+                                  host: 'SmartSpin2k.com',
+                                  path: '/',
+                                  fragment: ''); //http://SmartSpin2k.com";
                               if (await canLaunchUrl(url)) {
                                 await launchUrl(url);
                               }
                             },
-                            child: Text(
-                              'SmartSpin2k is a device that adds automatic resistance and virtual shifting to spin bikes. Click to learn more.',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.blue,
-                                decoration: TextDecoration.underline,
+                              child: Text(
+                                'SmartSpin2k is a device that adds automatic resistance and virtual shifting to spin bikes. Click to learn more!',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.blue,
+                                  decoration: TextDecoration.underline,
+                                ),
                               ),
-                            ),
+                          ),
+                          SizedBox(height: 10),
+                          Text(
+                            'Having Trouble?',
+                            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                           ),
                           SizedBox(height: 10),
                           Text(
@@ -298,3 +302,4 @@ class _ScanScreenState extends State<ScanScreen> {
     );
   }
 }
+
