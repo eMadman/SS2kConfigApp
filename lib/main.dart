@@ -94,9 +94,10 @@ class _SmartSpin2kAppState extends State<SmartSpin2kApp> {
     debugPrint('Handling deep link: ${uri.toString()}');
     
     // Handle Strava OAuth callback
-    if (uri.host == 'redirect' || uri.host == 'localhost') {
+    if (uri.scheme == 'smartspin2k' && (uri.host == 'redirect' || uri.host == 'localhost')) {
       final code = uri.queryParameters['code'];
       final error = uri.queryParameters['error'];
+      final state = uri.queryParameters['state']; // Handle state parameter if present
       
       if (error != null) {
         debugPrint('Strava auth error: $error');
@@ -143,9 +144,13 @@ class _SmartSpin2kAppState extends State<SmartSpin2kApp> {
               ),
             );
 
-            // Close the Connected Accounts dialog if it's open
-            if (_navigatorKey.currentState?.canPop() ?? false) {
+            // Ensure we're showing the main screen when returning from auth
+            while (_navigatorKey.currentState?.canPop() ?? false) {
               _navigatorKey.currentState?.pop();
+            }
+            // Rebuild the screen to ensure proper state
+            if (mounted) {
+              setState(() {});
             }
           } else if (mounted) {
             _scaffoldKey.currentState?.showSnackBar(

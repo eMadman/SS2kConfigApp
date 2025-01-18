@@ -15,6 +15,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../utils/constants.dart';
 import 'main_device_screen.dart';
 import '../utils/snackbar.dart';
+import '../utils/bledata.dart';
 import '../utils/extra.dart';
 import '../widgets/scan_result_tile.dart';
 import '../utils/demo.dart';
@@ -103,6 +104,14 @@ class _ScanScreenState extends State<ScanScreen> {
   }
 
   void onConnectPressed(BluetoothDevice device) {
+    try {
+      // Reset the user disconnect flag if triggered
+      if (BLEDataManager.forDevice(device).isUserDisconnect) {
+        BLEDataManager.forDevice(device).isUserDisconnect = false;
+      }
+    } catch (e) {
+      print("Device BLEData was not initialized: $e");
+    }
     if (FlutterBluePlus.isScanningNow) {
       FlutterBluePlus.stopScan();
     }
@@ -227,14 +236,14 @@ class _ScanScreenState extends State<ScanScreen> {
                                 await launchUrl(url);
                               }
                             },
-                              child: Text(
-                                'SmartSpin2k is a device that adds automatic resistance and virtual shifting to spin bikes. Click to learn more!',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.blue,
-                                  decoration: TextDecoration.underline,
-                                ),
+                            child: Text(
+                              'SmartSpin2k is a device that adds automatic resistance and virtual shifting to spin bikes. Click to learn more!',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.blue,
+                                decoration: TextDecoration.underline,
                               ),
+                            ),
                           ),
                           SizedBox(height: 10),
                           Text(
@@ -302,4 +311,3 @@ class _ScanScreenState extends State<ScanScreen> {
     );
   }
 }
-

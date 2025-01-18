@@ -103,8 +103,7 @@ class _ScanResultTileState extends State<ScanResultTile> {
               child: const Text('DISCONNECT'),
               onPressed: () async {
                 // Set user-initiated disconnect flag
-                BLEDataManager.forDevice(this.widget.result.device)
-                    .isUserDisconnect = true;
+                BLEDataManager.forDevice(this.widget.result.device).isUserDisconnect = true;
                 await this.widget.result.device.disconnectAndUpdateStream();
               },
               style: ElevatedButton.styleFrom(
@@ -118,11 +117,7 @@ class _ScanResultTileState extends State<ScanResultTile> {
     } else {
       return ElevatedButton(
         child: const Text('CONNECT'),
-        onPressed: (this.widget.result.advertisementData.connectable) ? () {
-          // Reset user disconnect flag when connecting
-          BLEDataManager.forDevice(this.widget.result.device).isUserDisconnect = false;
-          this.widget.onTap?.call();
-        } : null,
+        onPressed: (this.widget.result.advertisementData.connectable) ? this.widget.onTap : null,
         style: ElevatedButton.styleFrom(
           backgroundColor: ThemeData().colorScheme.secondary,
           foregroundColor: ThemeData().colorScheme.onSecondary,
@@ -160,7 +155,7 @@ class _ScanResultTileState extends State<ScanResultTile> {
     final int signalStrength = (index + 1) * 2;
 
     // Interpolate the color based on RSSI value
-    final double ratio = 2* (signalStrength - worstRSSI) / (bestRSSI - worstRSSI);
+    final double ratio = 2 * (signalStrength - worstRSSI) / (bestRSSI - worstRSSI);
     final int red = (255 * (1 - ratio)).toInt();
     final int green = (255 * ratio).toInt();
 
@@ -208,7 +203,10 @@ class _ScanResultTileState extends State<ScanResultTile> {
       leading: Image.asset(
         'assets/ss2kv3.png',
       ),
-      trailing: _buildConnectButton(context),
+      trailing: SizedBox(
+        width: 240, // Increased width to accommodate both buttons
+        child: _buildConnectButton(context),
+      ),
       children: <Widget>[
         if (adv.advName.isNotEmpty) _buildAdvRow(context, 'Name', adv.advName),
         _buildAdvRow(context, 'RSSI', '${this.widget.result.rssi.toString()}'),

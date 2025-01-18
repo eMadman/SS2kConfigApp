@@ -1,6 +1,6 @@
 name: ss2kconfigapp
 description: Configures the SmartSpin2k using BLE
-version: 1.0.9+24
+version: 1.0.9+25
 
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -15,11 +15,11 @@ dependencies:
   flutter:
     sdk: flutter
 
-  flutter_blue_plus:
-    git:
-      url: https://github.com/doudar/flutter-blue-plus.git
-      path: packages/flutter_blue_plus
-      ref: v1.0.3
+  flutter_blue_plus: ^1.34.5
+  #  git:
+  #    url: https://github.com/doudar/flutter-blue-plus.git
+  #    path: packages/flutter_blue_plus
+  #    ref: v1.0.3
   #dynamic_color: ^1.6.9
   flutter_launcher_icons: ^0.14.2
   flutter_native_splash: ^2.3.9

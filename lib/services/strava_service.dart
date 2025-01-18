@@ -148,20 +148,40 @@ class StravaService {
         );
       }
     } else if (Platform.isAndroid) {
-      // Use web OAuth for Android
-      final url = Uri.parse(_authUrl).replace(queryParameters: {
+      // Try Strava app URL scheme first for Android (similar to iOS)
+      final stravaAppUrl = Uri.parse('strava://oauth/mobile/authorize')
+          .replace(queryParameters: {
         'client_id': Environment.stravaClientId,
         'redirect_uri': _redirectUri,
         'response_type': 'code',
-        'approval_prompt': 'force',
+        'approval_prompt': 'auto',
         'scope': 'activity:write,read',
-        'mobile': 'true',
-      }).toString();
+      });
 
-      debugPrint('Launching Android auth URL: $url');
+      debugPrint('Attempting to launch Strava app URL: ${stravaAppUrl.toString()}');
+      
+      try {
+        if (await canLaunchUrl(stravaAppUrl)) {
+          await launchUrl(stravaAppUrl);
+          return;
+        }
+      } catch (e) {
+        debugPrint('Failed to launch Strava app: $e');
+      }
+
+      // Fall back to web OAuth if Strava app is not available
+      final webUrl = Uri.parse(_authUrl).replace(queryParameters: {
+        'client_id': Environment.stravaClientId,
+        'redirect_uri': _redirectUri,
+        'response_type': 'code',
+        'approval_prompt': 'auto',
+        'scope': 'activity:write,read',
+      });
+
+      debugPrint('Falling back to web URL: ${webUrl.toString()}');
 
       await launchUrlString(
-        url,
+        webUrl.toString(),
         mode: LaunchMode.externalApplication,
       );
     }
