@@ -27,7 +27,8 @@ class DeviceHeader extends StatefulWidget {
 
 class _DeviceHeaderState extends State<DeviceHeader> {
   StreamSubscription<BluetoothConnectionState>? _connectionStateSubscription;
-  Timer rssiTimer = Timer.periodic(Duration(seconds: 30), (rssiTimer) {});
+  Timer rssiTimer = Timer(Duration(seconds: 0), () {});
+  Timer setupTimer = Timer(Duration(seconds: 0), () {});
   late BLEData bleData;
   bool _isRefreshing = false;
   String _fwVersion = "";
@@ -58,10 +59,7 @@ class _DeviceHeaderState extends State<DeviceHeader> {
         setState(() {});
       }
     });
-    // Only start timer if it's not already running
-    if (!rssiTimer.isActive) {
-      _startRssiTimer();
-    }
+    startTimer();
   }
 
   Future<void> _refreshDeviceInfo() async {
@@ -93,16 +91,21 @@ class _DeviceHeaderState extends State<DeviceHeader> {
   void dispose() {
     _connectionStateSubscription?.cancel();
     _connectionStateSubscription = null;
-    if (rssiTimer.isActive) {
-      rssiTimer.cancel();
-    }
+    rssiTimer.cancel();
     super.dispose();
   }
 
-  void _startRssiTimer() {
-    rssiTimer = Timer.periodic(Duration(seconds: 20), (Timer t) {
+  startTimer() async {
+    rssiTimer = Timer.periodic(Duration(seconds: 20), (timer) async {
       print("*********UPDATE TIMER**************");
       _updateRssi();
+    });
+    //This timer checks to see if data has been read from the device
+    setupTimer = Timer.periodic(Duration(seconds: 5), (timer) async {
+      String testValue = bleData.getVnameValue(connectedPWRVname);
+      if (testValue == "null" && this.widget.device.isConnected) {
+        await this.bleData.setupConnection(this.widget.device);
+      }
     });
   }
 
@@ -134,7 +137,7 @@ class _DeviceHeaderState extends State<DeviceHeader> {
   Future onConnectPressed() async {
     // Reset user disconnect flag when connecting
     this.bleData.isUserDisconnect = false;
-    
+
     try {
       await this.widget.device.connectAndUpdateStream();
       Snackbar.show(ABC.c, "Connect: Success", success: true);
@@ -176,10 +179,10 @@ class _DeviceHeaderState extends State<DeviceHeader> {
     }
   }
 
-
   Future onPowerTablePressed() async {
     await PowerTableManager.showPowerTableMenu(context, bleData, widget.device);
- }
+  }
+
   Future onPresetsPressed() async {
     await PresetManager.showPresetsMenu(context, bleData, widget.device);
   }

@@ -67,7 +67,7 @@ class _PowerTableScreenState extends State<PowerTableScreen> with SingleTickerPr
         refreshTimer.cancel();
         return;
       }
-      if (!this.widget.device.isConnected) {
+      if (!this.widget.device.isConnected && mounted) {
         try {
           this.widget.device.connectAndUpdateStream();
         } catch (e) {

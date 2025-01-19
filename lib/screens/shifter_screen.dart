@@ -43,9 +43,8 @@ class _ShifterScreenState extends State<ShifterScreen> {
       return;
     }
     Timer.periodic(const Duration(seconds: 15), (refreshTimer) {
-      if(bleData.isUserDisconnect) {
+      if (!mounted) {
         refreshTimer.cancel();
-        return;
       }
       if (!this.widget.device.isConnected) {
         try {
@@ -53,14 +52,9 @@ class _ShifterScreenState extends State<ShifterScreen> {
         } catch (e) {
           print("failed to reconnect.");
         }
-      } else {
-        if (mounted) {
-        } else {
-          refreshTimer.cancel();
-        return;
-        }
       }
     });
+    //Start Subscription
     rwSubscription();
   }
 
@@ -102,6 +96,9 @@ class _ShifterScreenState extends State<ShifterScreen> {
       if (bleData.FTMSmode == 0 || bleData.simulateTargetWatts == false) {
         bleData.simulatedTargetWatts = "";
       }
+   //   if(t == "Loading"){
+   //     bleData.requestSettings(widget.device);
+   //   }
     }
     _refreshBlocker = false;
   }
@@ -156,72 +153,72 @@ class _ShifterScreenState extends State<ShifterScreen> {
   @override
   Widget build(BuildContext context) {
     return ScaffoldMessenger(
-      key: _scaffoldMessengerKey,
-      child: Scaffold(
-        appBar: SS2KAppBar(
-          device: widget.device,
-          title: "Virtual Shifter",
-        ),
-        body: Align(
-          alignment: Alignment.center,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            mainAxisSize: MainAxisSize.max,
-            children: [
-            SizedBox(height: 8),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  if (bleData.simulatedTargetWatts != "")
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                      child: MetricBox(
-                        value: bleData.simulatedTargetWatts.toString(),
-                        label: 'Target Watts',
+        key: _scaffoldMessengerKey,
+        child: Scaffold(
+          appBar: SS2KAppBar(
+            device: widget.device,
+            title: "Virtual Shifter",
+          ),
+          body: Align(
+            alignment: Alignment.center,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisSize: MainAxisSize.max,
+              children: [
+                SizedBox(height: 8),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      if (bleData.simulatedTargetWatts != "")
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                          child: MetricBox(
+                            value: bleData.simulatedTargetWatts.toString(),
+                            label: 'Target Watts',
+                          ),
+                        ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                        child: MetricBox(
+                          value: bleData.ftmsData.watts.toString(),
+                          label: 'Watts',
+                        ),
                       ),
-                    ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                    child: MetricBox(
-                      value: bleData.ftmsData.watts.toString(),
-                      label: 'Watts',
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                    child: MetricBox(
-                      value: bleData.ftmsData.cadence.toString(),
-                      label: 'RPM',
-                    ),
-                  ),
-                  if (bleData.ftmsData.heartRate != 0)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                      child: MetricBox(
-                        value: bleData.ftmsData.heartRate.toString(),
-                        label: 'BPM',
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                        child: MetricBox(
+                          value: bleData.ftmsData.cadence.toString(),
+                          label: 'RPM',
+                        ),
                       ),
-                    )
-                ],
-              ),
+                      if (bleData.ftmsData.heartRate != 0)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                          child: MetricBox(
+                            value: bleData.ftmsData.heartRate.toString(),
+                            label: 'BPM',
+                          ),
+                        )
+                    ],
+                  ),
+                ),
+                SizedBox(height: 12),
+                _buildShiftButton(Icons.arrow_upward, () {
+                  shift(1);
+                }),
+                Spacer(flex: 1),
+                _buildGearDisplay(t), // Assuming '0' is the current gear value
+                Spacer(flex: 1),
+                _buildShiftButton(Icons.arrow_downward, () {
+                  shift(-1);
+                }),
+                Spacer(flex: 1),
+              ],
             ),
-            SizedBox(height: 12),
-            _buildShiftButton(Icons.arrow_upward, () {
-              shift(1);
-            }),
-            Spacer(flex: 1),
-            _buildGearDisplay(t), // Assuming '0' is the current gear value
-            Spacer(flex: 1),
-            _buildShiftButton(Icons.arrow_downward, () {
-              shift(-1);
-            }),
-            Spacer(flex: 1),
-          ],
-        ),
-      ),
-    ));
+          ),
+        ));
   }
 }

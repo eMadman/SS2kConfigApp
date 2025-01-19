@@ -98,17 +98,18 @@ class _ScanResultTileState extends State<ScanResultTile> {
                 foregroundColor: ThemeData().colorScheme.onSecondary,
               ),
             ),
-            const SizedBox(width: 8),
-            ElevatedButton(
-              child: const Text('DISCONNECT'),
+            const SizedBox(width: 6),
+            IconButton(
+              icon: const Icon(Icons.link_off),
               onPressed: () async {
                 // Set user-initiated disconnect flag
                 BLEDataManager.forDevice(this.widget.result.device).isUserDisconnect = true;
                 await this.widget.result.device.disconnectAndUpdateStream();
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: ThemeData().colorScheme.error,
-                foregroundColor: ThemeData().colorScheme.onError,
+              style: IconButton.styleFrom(
+                backgroundColor: ThemeData().colorScheme.onError,
+                foregroundColor: ThemeData().colorScheme.error,
+                padding: const EdgeInsets.all(8),
               ),
             ),
           ],
@@ -204,7 +205,7 @@ class _ScanResultTileState extends State<ScanResultTile> {
         'assets/ss2kv3.png',
       ),
       trailing: SizedBox(
-        width: 240, // Increased width to accommodate both buttons
+        width: 120, // Increased width to accommodate both buttons
         child: _buildConnectButton(context),
       ),
       children: <Widget>[
